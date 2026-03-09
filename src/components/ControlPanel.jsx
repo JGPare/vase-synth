@@ -5,7 +5,7 @@ import SliderRow from './SliderRow'
 import IndexList from './IndexList'
 import ExportPanel from './ExportPanel'
 
-export default function ControlPanel({ meshRef }) {
+export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
   const {
     settings,
     vaseData,
@@ -266,7 +266,7 @@ export default function ControlPanel({ meshRef }) {
           {/* Color + Export */}
           <div>
             <h3 className="text-xs font-semibold text-gray-400 mb-2 uppercase">Appearance</h3>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mb-1">
               <label className="text-xs text-gray-400">Color</label>
               <input
                 type="color"
@@ -275,6 +275,15 @@ export default function ControlPanel({ meshRef }) {
                 className="w-8 h-8 rounded cursor-pointer border-none bg-transparent"
               />
             </div>
+            <SliderRow
+              label="spin"
+              name="spin_speed"
+              value={spinSpeed}
+              min={-1}
+              max={1}
+              step={0.25}
+              onChange={setSpinSpeed}
+            />
           </div>
 
           <ExportPanel meshRef={meshRef} />

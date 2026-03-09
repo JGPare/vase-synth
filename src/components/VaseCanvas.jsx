@@ -2,7 +2,7 @@ import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import VaseMesh from './VaseMesh'
 
-export default function VaseCanvas({ meshRef, appearance }) {
+export default function VaseCanvas({ meshRef, appearance, spinSpeed }) {
   return (
     <Canvas
       camera={{ position: [3, 3, 3], fov: 35, near: 1, far: 15 }}
@@ -29,7 +29,7 @@ export default function VaseCanvas({ meshRef, appearance }) {
       <gridHelper args={[200, 400, 0x000000, 0x000000]} material-opacity={0.2} material-transparent />
 
       {/* Vase */}
-      <VaseMesh meshRef={meshRef} appearance={appearance} />
+      <VaseMesh meshRef={meshRef} appearance={appearance} spinSpeed={spinSpeed} />
 
       {/* Controls */}
       <OrbitControls target={[0, 0.5, 0]} minDistance={2} maxDistance={8} />

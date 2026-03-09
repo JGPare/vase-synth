@@ -6,7 +6,7 @@ import VaseGenerator from '../lib/VaseGenerator'
 const SCALE = 0.02
 const DEFAULT_COLOR = 0x560bad
 
-export default function VaseMesh({ meshRef, appearance }) {
+export default function VaseMesh({ meshRef, appearance, spinSpeed = 0.5 }) {
   const internalRef = useRef()
   const ref = meshRef || internalRef
   const vaseData = useVaseStore((s) => s.vaseData)
@@ -34,7 +34,7 @@ export default function VaseMesh({ meshRef, appearance }) {
   // Rotation animation
   useFrame((_, delta) => {
     if (ref.current) {
-      ref.current.rotation.y += delta * 0.5
+      ref.current.rotation.y += delta * spinSpeed
     }
   })
 
