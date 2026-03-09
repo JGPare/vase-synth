@@ -70,7 +70,7 @@ def get_index(
             .all()
         )
         data = [
-            {"name": v.name, "user": current_user.username, "downloads": v.downloads}
+            {"name": v.name, "user": current_user.username, "downloads": v.downloads, "access": "public" if v.public else "private"}
             for v in vases
         ]
     else:
@@ -83,7 +83,7 @@ def get_index(
             .all()
         )
         data = [
-            {"name": v.name, "user": id_name_dict[v.user_id], "downloads": v.downloads}
+            {"name": v.name, "user": id_name_dict[v.user_id], "downloads": v.downloads, "access": "public"}
             for v in vases
         ]
 

@@ -23,10 +23,10 @@ def get_current_user_optional(request: Request, db: Session = Depends(get_db)) -
         return None
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        user_id: int = payload.get("sub")
+        user_id: int = int(payload.get("sub"))
         if user_id is None:
             return None
-    except jwt.PyJWTError:
+    except (jwt.PyJWTError, TypeError, ValueError):
         return None
     user = db.query(User).filter(User.id == user_id).first()
     return user
