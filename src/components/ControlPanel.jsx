@@ -127,6 +127,12 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
             min={settings.thickness.min} max={settings.thickness.max} step={settings.thickness.step}
             onChange={(v) => updateField('generic0', 'thickness', v)}
           />
+          <SliderRow
+            label="slope" name="slope"
+            value={vaseData.generic1.slope}
+            min={settings.slope.min} max={settings.slope.max} step={settings.slope.step}
+            onChange={(v) => updateField('generic1', 'slope', v)}
+          />
         </div>
       </div>
 
@@ -135,22 +141,16 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
         <h3 className="text-xs font-semibold text-gray-400 mb-2 uppercase">Resolution</h3>
         <div className="space-y-1">
           <SliderRow
-            label="v. steps" name="vertical_steps"
+            label="vertical" name="vertical_steps"
             value={vaseData.generic1.vertical_steps}
             min={settings.vertical_steps.min} max={settings.vertical_steps.max} step={settings.vertical_steps.step}
             onChange={(v) => updateField('generic1', 'vertical_steps', v)}
           />
           <SliderRow
-            label="r. steps" name="radial_steps"
+            label="radial" name="radial_steps"
             value={vaseData.generic1.radial_steps}
             min={settings.radial_steps.min} max={settings.radial_steps.max} step={settings.radial_steps.step}
             onChange={(v) => updateField('generic1', 'radial_steps', v)}
-          />
-          <SliderRow
-            label="slope" name="slope"
-            value={vaseData.generic1.slope}
-            min={settings.slope.min} max={settings.slope.max} step={settings.slope.step}
-            onChange={(v) => updateField('generic1', 'slope', v)}
           />
         </div>
       </div>
