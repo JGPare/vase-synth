@@ -17,6 +17,7 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
     setAppearance,
     saveVase,
     loadRandom,
+    loadDefault,
     deleteVase,
   } = useVaseStore()
 
@@ -94,6 +95,9 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
 
       {/* Action buttons */}
       <div className="flex gap-2">
+        <button onClick={() => { loadDefault(); setVaseName('Untitled') }} className="px-3 py-1 bg-gray-700 rounded text-sm hover:bg-gray-600">
+          New
+        </button>
         <button onClick={handleSave} className="px-3 py-1 bg-purple-700 rounded text-sm hover:bg-purple-600">
           Save
         </button>
