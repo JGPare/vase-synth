@@ -12,26 +12,16 @@ default_vase = {
         "slope"  : 50,
      },
 
-    "radial" : [
-        { "mag" : 0,
+    "modifiers" : [
+        { "type" : "sin_radial",
+        "mag" : 0,
         "freq" : 10,
         "twist" : 0,
         "phase" : 0,
         },
-        { "mag" : 0,
+        { "type" : "sin_vertical",
+        "mag" : 0,
         "freq" : 10,
-        "twist" : 0,
-        "phase" : 0,
-        }
-        ],
-
-    "vertical" : [
-        { "mag" : 0,
-        "freq" : 10,
-        "phase" : 0,
-        },
-        { "mag" : 0,
-        "freq" :  0,
         "phase" : 0,
         }
         ]

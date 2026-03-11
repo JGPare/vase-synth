@@ -57,10 +57,34 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
       appearance: parseInt(vaseColor.replace('#', ''), 16),
       generic0: vaseData.generic0,
       generic1: vaseData.generic1,
-      radial: vaseData.radial,
-      vertical: vaseData.vertical,
+      modifiers: vaseData.modifiers,
     }
     saveVase(data)
+  }
+
+  const addModifier = () => {
+    if (!vaseData || vaseData.modifiers.length >= 6) return
+    const newData = JSON.parse(JSON.stringify(vaseData))
+    newData.modifiers.push({ type: 'sin_radial', mag: 0, freq: 10, twist: 0, phase: 0 })
+    setVaseData(newData)
+  }
+
+  const removeModifier = (i) => {
+    if (!vaseData) return
+    const newData = JSON.parse(JSON.stringify(vaseData))
+    newData.modifiers.splice(i, 1)
+    setVaseData(newData)
+  }
+
+  const changeModifierType = (i, newType) => {
+    if (!vaseData) return
+    const newData = JSON.parse(JSON.stringify(vaseData))
+    if (newType === 'sin_radial') {
+      newData.modifiers[i] = { type: 'sin_radial', mag: 0, freq: 10, twist: 0, phase: 0 }
+    } else {
+      newData.modifiers[i] = { type: 'sin_vertical', mag: 0, freq: 10, phase: 0 }
+    }
+    setVaseData(newData)
   }
 
   const handleColorChange = (e) => {
@@ -159,70 +183,70 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
         </div>
       </div>
 
-      {/* Radial modifiers */}
+      {/* Modifiers */}
       <div>
-        <h3 className="text-xs font-semibold text-gray-400 mb-2 uppercase">Radial Modifiers</h3>
-        {vaseData.radial.map((r, i) => (
-          <div key={i} className="mb-2">
-            <span className="text-xs text-gray-500">radial {i + 1}</span>
-            <div className="space-y-1">
-              <SliderRow
-                label="amount" name={`r${i}_mag`}
-                value={r.mag}
-                min={settings.radial_mag.min} max={settings.radial_mag.max} step={settings.radial_mag.step}
-                onChange={(v) => updateField('radial', 'mag', v, i)}
-              />
-              <SliderRow
-                label="freq" name={`r${i}_freq`}
-                value={r.freq}
-                min={settings.radial_freq.min} max={settings.radial_freq.max} step={settings.radial_freq.step}
-                onChange={(v) => updateField('radial', 'freq', v, i)}
-              />
-              <SliderRow
-                label="twist" name={`r${i}_twist`}
-                value={r.twist}
-                min={settings.radial_twist.min} max={settings.radial_twist.max} step={settings.radial_twist.step}
-                onChange={(v) => updateField('radial', 'twist', v, i)}
-              />
-              <SliderRow
-                label="phase" name={`r${i}_phase`}
-                value={r.phase}
-                min={settings.radial_phase.min} max={settings.radial_phase.max} step={settings.radial_phase.step}
-                onChange={(v) => updateField('radial', 'phase', v, i)}
-              />
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase">Modifiers</h3>
+          <button
+            onClick={addModifier}
+            disabled={vaseData.modifiers.length >= 6}
+            className="px-2 py-0.5 bg-gray-700 rounded text-xs hover:bg-gray-600 disabled:opacity-40"
+          >
+            + Add
+          </button>
+        </div>
+        {vaseData.modifiers.map((mod, i) => {
+          const isRadial = mod.type === 'sin_radial'
+          const prefix = isRadial ? 'radial' : 'vertical'
+          return (
+            <div key={i} className="mb-3">
+              <div className="flex items-center gap-2 mb-1">
+                <select
+                  value={mod.type}
+                  onChange={(e) => changeModifierType(i, e.target.value)}
+                  className="bg-gray-700 text-white rounded px-1 py-0.5 text-xs flex-1"
+                >
+                  <option value="sin_radial">sin radial</option>
+                  <option value="sin_vertical">sin vertical</option>
+                </select>
+                <button
+                  onClick={() => removeModifier(i)}
+                  className="text-gray-500 hover:text-red-400 text-xs px-1"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="space-y-1">
+                <SliderRow
+                  label="amount" name={`m${i}_mag`}
+                  value={mod.mag}
+                  min={settings[`${prefix}_mag`].min} max={settings[`${prefix}_mag`].max} step={settings[`${prefix}_mag`].step}
+                  onChange={(v) => updateField('modifiers', 'mag', v, i)}
+                />
+                <SliderRow
+                  label="freq" name={`m${i}_freq`}
+                  value={mod.freq}
+                  min={settings[`${prefix}_freq`].min} max={settings[`${prefix}_freq`].max} step={settings[`${prefix}_freq`].step}
+                  onChange={(v) => updateField('modifiers', 'freq', v, i)}
+                />
+                {isRadial && (
+                  <SliderRow
+                    label="twist" name={`m${i}_twist`}
+                    value={mod.twist}
+                    min={settings.radial_twist.min} max={settings.radial_twist.max} step={settings.radial_twist.step}
+                    onChange={(v) => updateField('modifiers', 'twist', v, i)}
+                  />
+                )}
+                <SliderRow
+                  label="phase" name={`m${i}_phase`}
+                  value={mod.phase}
+                  min={settings[`${prefix}_phase`].min} max={settings[`${prefix}_phase`].max} step={settings[`${prefix}_phase`].step}
+                  onChange={(v) => updateField('modifiers', 'phase', v, i)}
+                />
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Vertical modifiers */}
-      <div>
-        <h3 className="text-xs font-semibold text-gray-400 mb-2 uppercase">Vertical Modifiers</h3>
-        {vaseData.vertical.map((v, i) => (
-          <div key={i} className="mb-2">
-            <span className="text-xs text-gray-500">vertical {i + 1}</span>
-            <div className="space-y-1">
-              <SliderRow
-                label="amount" name={`v${i}_mag`}
-                value={v.mag}
-                min={settings.vertical_mag.min} max={settings.vertical_mag.max} step={settings.vertical_mag.step}
-                onChange={(val) => updateField('vertical', 'mag', val, i)}
-              />
-              <SliderRow
-                label="freq" name={`v${i}_freq`}
-                value={v.freq}
-                min={settings.vertical_freq.min} max={settings.vertical_freq.max} step={settings.vertical_freq.step}
-                onChange={(val) => updateField('vertical', 'freq', val, i)}
-              />
-              <SliderRow
-                label="phase" name={`v${i}_phase`}
-                value={v.phase}
-                min={settings.vertical_phase.min} max={settings.vertical_phase.max} step={settings.vertical_phase.step}
-                onChange={(val) => updateField('vertical', 'phase', val, i)}
-              />
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Color + Export */}

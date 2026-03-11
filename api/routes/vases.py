@@ -27,8 +27,7 @@ def save_vase(
     vase_data = {
         "generic0": body.generic0,
         "generic1": body.generic1,
-        "radial": body.radial,
-        "vertical": body.vertical,
+        "modifiers": body.modifiers,
     }
     vase_data = string_dict_to_int_dict(vase_data)
 
@@ -107,15 +106,23 @@ def load_vase(
             )
 
     if vase:
-        vase_data = vase.data
+        vase_data = json.loads(vase.data)
         appearance = vase.appearance
         downloads = vase.downloads
     else:
-        vase_data = json.dumps(default_vase)
+        vase_data = dict(default_vase)
         appearance = ""
         downloads = 0
 
-    return [vase_data, appearance, downloads]
+    if "radial" in vase_data or "vertical" in vase_data:
+        modifiers = []
+        for r in vase_data.pop("radial", []):
+            modifiers.append({"type": "sin_radial", **r})
+        for v in vase_data.pop("vertical", []):
+            modifiers.append({"type": "sin_vertical", **v})
+        vase_data["modifiers"] = modifiers
+
+    return [json.dumps(vase_data), appearance, downloads]
 
 
 @router.post("/delete-vase")

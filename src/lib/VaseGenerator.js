@@ -7,13 +7,12 @@ export default class VaseGenerator
 {
   static generateVase(vaseData) {
     const generic = { ...vaseData.generic0, ...vaseData.generic1 }
-    const radials = vaseData.radial.map(r => ({ ...r }))
-    const verticals = vaseData.vertical.map(v => ({ ...v }))
-  
-    return this.createFromObjects(generic, radials, verticals)
+    const modifiers = vaseData.modifiers.map(m => ({ ...m }))
+
+    return this.createFromObjects(generic, modifiers)
   }
 
-  static createFromObjects(generic, radials, verticals) {
+  static createFromObjects(generic, modifiers) {
     let params = {
         height: parseFloat(generic.height),
         width: parseFloat(generic.width),
@@ -23,21 +22,19 @@ export default class VaseGenerator
         thickness: parseFloat(generic.thickness) / 100,
     }
 
-    radials.forEach(radial => {
-        radial.mag = parseFloat(radial.mag) / 20
-        radial.freq = parseFloat(radial.freq)
-        radial.twist = parseFloat(radial.twist) / params.height
-        radial.phase = parseFloat(radial.phase) / 100
+    modifiers.forEach(mod => {
+        if (mod.type === 'sin_radial') {
+            mod.mag = parseFloat(mod.mag) / 20
+            mod.freq = parseFloat(mod.freq)
+            mod.twist = parseFloat(mod.twist) / params.height
+            mod.phase = parseFloat(mod.phase) / 100
+        } else if (mod.type === 'sin_vertical') {
+            mod.mag = parseFloat(mod.mag) / 20
+            mod.freq = parseFloat(mod.freq) / params.height
+            mod.phase = parseFloat(mod.phase) / 100
+        }
     })
-    // should just be able to move this into params as js is always by ref
-    params.radials = radials
-
-    verticals.forEach(vertical => {
-        vertical.mag = parseFloat(vertical.mag) / 20
-        vertical.freq = parseFloat(vertical.freq) / params.height
-        vertical.phase = parseFloat(vertical.phase) / 100
-    })
-    params.verticals = verticals
+    params.modifiers = modifiers
     return new VaseModel(params)
   }
   
@@ -198,15 +195,15 @@ export default class VaseGenerator
         const cylinderical = new THREE.Cylindrical()
         cylinderical.setFromCartesianCoords(x, y, z)
   
-        vase.radials.forEach(modifier => {
-            cylinderical.radius += modifier.mag * Math.sin(modifier.freq * cylinderical.theta
-                + modifier.twist * cylinderical.y
-                + modifier.phase * 2 * Math.PI)
-        })
-  
-        vase.verticals.forEach(modifier => {
-            cylinderical.radius += modifier.mag * Math.sin(modifier.freq * cylinderical.y
-                + modifier.phase * 2 * Math.PI)
+        vase.modifiers.forEach(modifier => {
+            if (modifier.type === 'sin_radial') {
+                cylinderical.radius += modifier.mag * Math.sin(modifier.freq * cylinderical.theta
+                    + modifier.twist * cylinderical.y
+                    + modifier.phase * 2 * Math.PI)
+            } else if (modifier.type === 'sin_vertical') {
+                cylinderical.radius += modifier.mag * Math.sin(modifier.freq * cylinderical.y
+                    + modifier.phase * 2 * Math.PI)
+            }
         })
   
         const cartisian = new THREE.Vector3()

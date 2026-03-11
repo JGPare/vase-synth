@@ -8,8 +8,7 @@ export default class VaseModel {
       this.radialSegments = params.radialSegments
       this.slope = params.slope
       this.thickness = params.thickness
-      this.radials = params.radials
-      this.verticals = params.verticals
+      this.modifiers = params.modifiers
       this.color = params.color
 
       this.baseThickness = this.width / 2 * this.thickness

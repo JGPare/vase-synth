@@ -8,8 +8,7 @@ class SaveVaseRequest(BaseModel):
     access: Optional[str] = "private"
     generic0: dict
     generic1: dict
-    radial: list
-    vertical: list
+    modifiers: list
 
 
 class LoadVaseRequest(BaseModel):
