@@ -93,4 +93,39 @@ settings = {
         "max" : 100,
         "step" : 1,
         },
+    "tri_radial_mag" : {
+        "min" : 0,
+        "max" : 100,
+        "step" : 1,
+        },
+    "tri_radial_freq" : {
+        "min" : 0,
+        "max" : 50,
+        "step" : 1,
+        },
+    "tri_radial_twist" : {
+        "min" : -80,
+        "max" : 80,
+        "step" : 1,
+        },
+    "tri_radial_phase" : {
+        "min" : 0,
+        "max" : 100,
+        "step" : 1,
+        },
+    "tri_vertical_mag" : {
+        "min" : 0,
+        "max" : 100,
+        "step" : 1,
+        },
+    "tri_vertical_freq" : {
+        "min" : 0,
+        "max" : 100,
+        "step" : 1,
+        },
+    "tri_vertical_phase" : {
+        "min" : 0,
+        "max" : 100,
+        "step" : 1,
+        },
 }

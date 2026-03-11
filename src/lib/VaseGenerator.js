@@ -23,12 +23,12 @@ export default class VaseGenerator
     }
 
     modifiers.forEach(mod => {
-        if (mod.type === 'sin_radial') {
+        if (mod.type === 'sin_radial' || mod.type === 'tri_radial') {
             mod.mag = parseFloat(mod.mag) / 20
             mod.freq = parseFloat(mod.freq)
             mod.twist = parseFloat(mod.twist) / params.height
             mod.phase = parseFloat(mod.phase) / 100
-        } else if (mod.type === 'sin_vertical') {
+        } else if (mod.type === 'sin_vertical' || mod.type === 'tri_vertical') {
             mod.mag = parseFloat(mod.mag) / 20
             mod.freq = parseFloat(mod.freq) / params.height
             mod.phase = parseFloat(mod.phase) / 100
@@ -203,6 +203,15 @@ export default class VaseGenerator
             } else if (modifier.type === 'sin_vertical') {
                 cylinderical.radius += modifier.mag * Math.sin(modifier.freq * cylinderical.y
                     + modifier.phase * 2 * Math.PI)
+            } else if (modifier.type === 'tri_radial') {
+                const arg = modifier.freq * cylinderical.theta
+                    + modifier.twist * cylinderical.y
+                    + modifier.phase * 2 * Math.PI
+                cylinderical.radius += modifier.mag * (2 / Math.PI) * Math.asin(Math.sin(arg))
+            } else if (modifier.type === 'tri_vertical') {
+                const arg = modifier.freq * cylinderical.y
+                    + modifier.phase * 2 * Math.PI
+                cylinderical.radius += modifier.mag * (2 / Math.PI) * Math.asin(Math.sin(arg))
             }
         })
   

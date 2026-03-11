@@ -79,10 +79,11 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
   const changeModifierType = (i, newType) => {
     if (!vaseData) return
     const newData = JSON.parse(JSON.stringify(vaseData))
-    if (newType === 'sin_radial') {
-      newData.modifiers[i] = { type: 'sin_radial', mag: 0, freq: 10, twist: 0, phase: 0 }
+    const isRadial = newType === 'sin_radial' || newType === 'tri_radial'
+    if (isRadial) {
+      newData.modifiers[i] = { type: newType, mag: 0, freq: 10, twist: 0, phase: 0 }
     } else {
-      newData.modifiers[i] = { type: 'sin_vertical', mag: 0, freq: 10, phase: 0 }
+      newData.modifiers[i] = { type: newType, mag: 0, freq: 10, phase: 0 }
     }
     setVaseData(newData)
   }
@@ -196,8 +197,11 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
           </button>
         </div>
         {vaseData.modifiers.map((mod, i) => {
-          const isRadial = mod.type === 'sin_radial'
-          const prefix = isRadial ? 'radial' : 'vertical'
+          const isRadial = mod.type === 'sin_radial' || mod.type === 'tri_radial'
+          const prefix = mod.type === 'sin_radial' ? 'radial'
+            : mod.type === 'sin_vertical' ? 'vertical'
+            : mod.type === 'tri_radial' ? 'tri_radial'
+            : 'tri_vertical'
           return (
             <div key={i} className="mb-3">
               <div className="flex items-center gap-2 mb-1">
@@ -208,6 +212,8 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
                 >
                   <option value="sin_radial">sin radial</option>
                   <option value="sin_vertical">sin vertical</option>
+                  <option value="tri_radial">tri radial</option>
+                  <option value="tri_vertical">tri vertical</option>
                 </select>
                 <button
                   onClick={() => removeModifier(i)}

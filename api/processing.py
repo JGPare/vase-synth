@@ -5,6 +5,8 @@ def string_dict_to_int_dict(data):
     if isinstance(value, list):
         for elem in value:
             for subkey in elem.keys():
+                if isinstance(elem[subkey], str) and not elem[subkey].lstrip('-').isdigit():
+                    continue
                 elem[subkey] = int(elem[subkey])
     else:
         for subkey in value.keys():
