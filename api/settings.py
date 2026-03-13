@@ -128,4 +128,44 @@ settings = {
         "max" : 100,
         "step" : 1,
         },
+    "julia_mag" : {
+        "min" : 0,
+        "max" : 100,
+        "step" : 1,
+        },
+    "julia_c_x" : {
+        "min" : -150,
+        "max" : 150,
+        "step" : 1,
+        },
+    "julia_c_y" : {
+        "min" : -150,
+        "max" : 150,
+        "step" : 1,
+        },
+    "julia_r_sample" : {
+        "min" : 10,
+        "max" : 200,
+        "step" : 1,
+        },
+    "julia_iterations" : {
+        "min" : 5,
+        "max" : 100,
+        "step" : 1,
+        },
+    "julia_freq" : {
+        "min" : 1,
+        "max" : 20,
+        "step" : 1,
+        },
+    "julia_phase" : {
+        "min" : 0,
+        "max" : 100,
+        "step" : 1,
+        },
+    "julia_rotate_c" : {
+        "min" : -100,
+        "max" : 100,
+        "step" : 1,
+        },
 }
