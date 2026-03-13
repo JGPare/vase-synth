@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useVaseStore } from '../stores/vaseStore'
 import SliderRow from './SliderRow'
 import ExportPanel from './ExportPanel'
+import JuliaViewer from './JuliaViewer'
 
 export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
   const {
@@ -49,6 +50,19 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
     [vaseData, setVaseData]
   )
 
+  const updateFields = useCallback(
+    (group, updates, index) => {
+      if (!vaseData) return
+      const newData = JSON.parse(JSON.stringify(vaseData))
+      Object.entries(updates).forEach(([key, value]) => {
+        if (index !== undefined) newData[group][index][key] = value
+        else newData[group][key] = value
+      })
+      setVaseData(newData)
+    },
+    [vaseData, setVaseData]
+  )
+
   const handleSave = () => {
     if (!vaseData) return
     const data = {
@@ -82,6 +96,8 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
     const isRadial = newType === 'sin_radial' || newType === 'tri_radial'
     if (isRadial) {
       newData.modifiers[i] = { type: newType, mag: 0, freq: 10, twist: 0, phase: 0 }
+    } else if (newType === 'julia_radial') {
+      newData.modifiers[i] = { type: 'julia_radial', mag: 30, c_x: -7, c_y: 27, r_sample: 100, iterations: 20, flip: 1, freq: 1, phase: 0, rotate_c: 0, offset_x: 0, offset_y: 0, view_scale: 60 }
     } else {
       newData.modifiers[i] = { type: newType, mag: 0, freq: 10, phase: 0 }
     }
@@ -214,6 +230,7 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
                   <option value="sin_vertical">sin vertical</option>
                   <option value="tri_radial">tri radial</option>
                   <option value="tri_vertical">tri vertical</option>
+                  <option value="julia_radial">julia radial</option>
                 </select>
                 <button
                   onClick={() => removeModifier(i)}
@@ -223,32 +240,86 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
                 </button>
               </div>
               <div className="space-y-1">
-                <SliderRow
-                  label="amount" name={`m${i}_mag`}
-                  value={mod.mag}
-                  min={settings[`${prefix}_mag`].min} max={settings[`${prefix}_mag`].max} step={settings[`${prefix}_mag`].step}
-                  onChange={(v) => updateField('modifiers', 'mag', v, i)}
-                />
-                <SliderRow
-                  label="freq" name={`m${i}_freq`}
-                  value={mod.freq}
-                  min={settings[`${prefix}_freq`].min} max={settings[`${prefix}_freq`].max} step={settings[`${prefix}_freq`].step}
-                  onChange={(v) => updateField('modifiers', 'freq', v, i)}
-                />
-                {isRadial && (
-                  <SliderRow
-                    label="twist" name={`m${i}_twist`}
-                    value={mod.twist}
-                    min={settings.radial_twist.min} max={settings.radial_twist.max} step={settings.radial_twist.step}
-                    onChange={(v) => updateField('modifiers', 'twist', v, i)}
-                  />
+                {mod.type === 'julia_radial' ? (
+                  <>
+                    <SliderRow label="amount" name={`m${i}_mag`} value={mod.mag}
+                      min={settings.julia_mag.min} max={settings.julia_mag.max} step={settings.julia_mag.step}
+                      onChange={(v) => updateField('modifiers', 'mag', v, i)} />
+                    <SliderRow label="c.x" name={`m${i}_c_x`} value={mod.c_x}
+                      min={settings.julia_c_x.min} max={settings.julia_c_x.max} step={settings.julia_c_x.step}
+                      onChange={(v) => updateField('modifiers', 'c_x', v, i)} />
+                    <SliderRow label="c.y" name={`m${i}_c_y`} value={mod.c_y}
+                      min={settings.julia_c_y.min} max={settings.julia_c_y.max} step={settings.julia_c_y.step}
+                      onChange={(v) => updateField('modifiers', 'c_y', v, i)} />
+                    <SliderRow label="radius" name={`m${i}_r_sample`} value={mod.r_sample}
+                      min={settings.julia_r_sample.min} max={settings.julia_r_sample.max} step={settings.julia_r_sample.step}
+                      onChange={(v) => updateField('modifiers', 'r_sample', v, i)} />
+                    <SliderRow label="iter" name={`m${i}_iterations`} value={mod.iterations}
+                      min={settings.julia_iterations.min} max={settings.julia_iterations.max} step={settings.julia_iterations.step}
+                      onChange={(v) => updateField('modifiers', 'iterations', v, i)} />
+                    <div className="flex items-center gap-2 py-0.5">
+                      <span className="text-xs text-gray-400 w-16">flip</span>
+                      <button
+                        onClick={() => updateField('modifiers', 'flip', mod.flip === 1 ? -1 : 1, i)}
+                        className={`px-2 py-0.5 rounded text-xs ${mod.flip === -1 ? 'bg-purple-600' : 'bg-gray-600'}`}
+                      >
+                        {mod.flip === 1 ? 'normal' : 'flipped'}
+                      </button>
+                    </div>
+                    <SliderRow label="freq" name={`m${i}_freq`} value={mod.freq}
+                      min={settings.julia_freq.min} max={settings.julia_freq.max} step={settings.julia_freq.step}
+                      onChange={(v) => updateField('modifiers', 'freq', v, i)} />
+                    <SliderRow label="phase" name={`m${i}_phase`} value={mod.phase}
+                      min={settings.julia_phase.min} max={settings.julia_phase.max} step={settings.julia_phase.step}
+                      onChange={(v) => updateField('modifiers', 'phase', v, i)} />
+                    <SliderRow label="rotate c" name={`m${i}_rotate_c`} value={mod.rotate_c}
+                      min={settings.julia_rotate_c.min} max={settings.julia_rotate_c.max} step={settings.julia_rotate_c.step}
+                      onChange={(v) => updateField('modifiers', 'rotate_c', v, i)} />
+                    <div className="mt-2">
+                      <JuliaViewer
+                        c_x={mod.c_x}
+                        c_y={mod.c_y}
+                        iterations={mod.iterations}
+                        r_sample={mod.r_sample}
+                        flip={mod.flip}
+                        offset_x={mod.offset_x || 0}
+                        offset_y={mod.offset_y || 0}
+                        view_scale={mod.view_scale || 60}
+                        onOffsetChange={(ox, oy) => updateFields('modifiers', { offset_x: ox, offset_y: oy }, i)}
+                        onScaleChange={(s) => updateField('modifiers', 'view_scale', s, i)}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <SliderRow
+                      label="amount" name={`m${i}_mag`}
+                      value={mod.mag}
+                      min={settings[`${prefix}_mag`].min} max={settings[`${prefix}_mag`].max} step={settings[`${prefix}_mag`].step}
+                      onChange={(v) => updateField('modifiers', 'mag', v, i)}
+                    />
+                    <SliderRow
+                      label="freq" name={`m${i}_freq`}
+                      value={mod.freq}
+                      min={settings[`${prefix}_freq`].min} max={settings[`${prefix}_freq`].max} step={settings[`${prefix}_freq`].step}
+                      onChange={(v) => updateField('modifiers', 'freq', v, i)}
+                    />
+                    {isRadial && (
+                      <SliderRow
+                        label="twist" name={`m${i}_twist`}
+                        value={mod.twist}
+                        min={settings.radial_twist.min} max={settings.radial_twist.max} step={settings.radial_twist.step}
+                        onChange={(v) => updateField('modifiers', 'twist', v, i)}
+                      />
+                    )}
+                    <SliderRow
+                      label="phase" name={`m${i}_phase`}
+                      value={mod.phase}
+                      min={settings[`${prefix}_phase`].min} max={settings[`${prefix}_phase`].max} step={settings[`${prefix}_phase`].step}
+                      onChange={(v) => updateField('modifiers', 'phase', v, i)}
+                    />
+                  </>
                 )}
-                <SliderRow
-                  label="phase" name={`m${i}_phase`}
-                  value={mod.phase}
-                  min={settings[`${prefix}_phase`].min} max={settings[`${prefix}_phase`].max} step={settings[`${prefix}_phase`].step}
-                  onChange={(v) => updateField('modifiers', 'phase', v, i)}
-                />
               </div>
             </div>
           )
