@@ -36,17 +36,17 @@ export default class VaseGenerator
             mod.mag = parseFloat(mod.mag) / 20
             mod.c_x = parseFloat(mod.c_x) / 100
             mod.c_y = parseFloat(mod.c_y) / 100
-            mod.r_sample = parseFloat(mod.r_sample) / 100
             mod.iterations = parseInt(mod.iterations)
             mod.flip = parseFloat(mod.flip)
             mod.freq = parseFloat(mod.freq)
             mod.phase = parseFloat(mod.phase) / 100
-            mod.rotate_c = parseFloat(mod.rotate_c) * Math.PI / 100
+            mod.twist = parseFloat(mod.twist || 0) * Math.PI / 100
             mod.offset_x = parseFloat(mod.offset_x || 0)
             mod.offset_y = parseFloat(mod.offset_y || 0)
             mod.view_scale = parseFloat(mod.view_scale || 60)
-            // effective r_sample in complex units: fixed pixel radius / current zoom
-            mod.r_sample = mod.r_sample * 60 / mod.view_scale
+            // effective radii in complex units: fixed pixel radius / current zoom
+            mod.r_bottom = parseFloat(mod.r_bottom) / 100 * 60 / mod.view_scale
+            mod.r_top = parseFloat(mod.r_top) / 100 * 60 / mod.view_scale
         }
     })
     params.modifiers = modifiers
@@ -236,14 +236,12 @@ export default class VaseGenerator
                     + modifier.phase * 2 * Math.PI
                 cylinderical.radius += modifier.mag * (2 / Math.PI) * Math.asin(Math.sin(arg))
             } else if (modifier.type === 'julia_radial') {
-                const arg = modifier.freq * cylinderical.theta + modifier.phase * 2 * Math.PI
                 const t = (cylinderical.y + vase.height / 2) / vase.height
-                const angle = modifier.rotate_c * t
-                const cr = modifier.c_x * Math.cos(angle) - modifier.c_y * Math.sin(angle)
-                const ci = modifier.c_x * Math.sin(angle) + modifier.c_y * Math.cos(angle)
-                const zr = modifier.offset_x + modifier.r_sample * Math.cos(arg)
-                const zi = modifier.offset_y + modifier.flip * modifier.r_sample * Math.sin(arg)
-                const iter = VaseGenerator.juliaIter(zr, zi, cr, ci, modifier.iterations)
+                const r = modifier.r_bottom + (modifier.r_top - modifier.r_bottom) * t
+                const arg = modifier.freq * cylinderical.theta + modifier.phase * 2 * Math.PI + modifier.twist * t
+                const zr = modifier.offset_x + r * Math.cos(arg)
+                const zi = modifier.offset_y + modifier.flip * r * Math.sin(arg)
+                const iter = VaseGenerator.juliaIter(zr, zi, modifier.c_x, modifier.c_y, modifier.iterations)
                 cylinderical.radius += modifier.mag * (iter / modifier.iterations)
             }
         })

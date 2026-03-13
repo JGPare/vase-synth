@@ -168,4 +168,9 @@ settings = {
         "max" : 100,
         "step" : 1,
         },
+    "julia_twist" : {
+        "min" : -100,
+        "max" : 100,
+        "step" : 1,
+        },
 }

@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 
-export default function JuliaViewer({ c_x, c_y, iterations, r_sample, flip, offset_x, offset_y, view_scale, onOffsetChange, onScaleChange }) {
+export default function JuliaViewer({ c_x, c_y, iterations, r_bottom, r_top, phase, twist, flip, offset_x, offset_y, view_scale, onOffsetChange, onScaleChange }) {
   const canvasRef = useRef(null)
   const [viewX, setViewX] = useState(-(offset_x || 0))
   const [viewY, setViewY] = useState(-(offset_y || 0))
@@ -13,7 +13,6 @@ export default function JuliaViewer({ c_x, c_y, iterations, r_sample, flip, offs
   const BASE_SCALE = 60
   const cr = c_x / 100
   const ci = c_y / 100
-  const rs = r_sample / 100
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -51,13 +50,45 @@ export default function JuliaViewer({ c_x, c_y, iterations, r_sample, flip, offs
 
     ctx.putImageData(imageData, 0, 0)
 
-    // Draw sample circle — fixed in screen space; Julia set pans/zooms under it
+    const rb = r_bottom / 100 * BASE_SCALE
+    const rt = r_top / 100 * BASE_SCALE
+    const phaseAngle = (phase / 100) * 2 * Math.PI
+    const topAngle = phaseAngle + (twist / 100) * Math.PI
+
+    // Bottom circle — solid white
     ctx.beginPath()
-    ctx.arc(SIZE / 2, SIZE / 2, rs * BASE_SCALE, 0, 2 * Math.PI)
-    ctx.strokeStyle = 'rgba(255,255,255,0.8)'
+    ctx.arc(SIZE / 2, SIZE / 2, rb, 0, 2 * Math.PI)
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'
     ctx.lineWidth = 1.5
+    ctx.setLineDash([])
     ctx.stroke()
-  }, [cr, ci, iterations, rs, flip, viewX, viewY, scale])
+
+    // Top circle — dashed white
+    ctx.beginPath()
+    ctx.arc(SIZE / 2, SIZE / 2, rt, 0, 2 * Math.PI)
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+    ctx.lineWidth = 1.5
+    ctx.setLineDash([4, 3])
+    ctx.stroke()
+    ctx.setLineDash([])
+
+    // Bottom dot — white
+    const bDotX = SIZE / 2 + rb * Math.cos(phaseAngle)
+    const bDotY = SIZE / 2 + flip * rb * Math.sin(phaseAngle)
+    ctx.beginPath()
+    ctx.arc(bDotX, bDotY, 3.5, 0, 2 * Math.PI)
+    ctx.fillStyle = 'rgba(255,255,255,1)'
+    ctx.fill()
+
+    // Top dot — orange
+    const tDotX = SIZE / 2 + rt * Math.cos(topAngle)
+    const tDotY = SIZE / 2 + flip * rt * Math.sin(topAngle)
+    ctx.beginPath()
+    ctx.arc(tDotX, tDotY, 3.5, 0, 2 * Math.PI)
+    ctx.fillStyle = 'rgba(255,160,50,1)'
+    ctx.fill()
+
+  }, [cr, ci, iterations, r_bottom, r_top, phase, twist, flip, viewX, viewY, scale])
 
   const commitOffset = useCallback((vx, vy) => {
     onOffsetChange?.(-vx, -vy)
@@ -65,7 +96,7 @@ export default function JuliaViewer({ c_x, c_y, iterations, r_sample, flip, offs
 
   const onWheel = useCallback((e) => {
     e.preventDefault()
-    const next = Math.min(500, Math.max(10, scale * (e.deltaY < 0 ? 1.1 : 0.9)))
+    const next = Math.min(5000, Math.max(10, scale * (e.deltaY < 0 ? 1.1 : 0.9)))
     setScale(next)
     onScaleChange?.(next)
   }, [scale, onScaleChange])

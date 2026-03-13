@@ -97,7 +97,7 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
     if (isRadial) {
       newData.modifiers[i] = { type: newType, mag: 0, freq: 10, twist: 0, phase: 0 }
     } else if (newType === 'julia_radial') {
-      newData.modifiers[i] = { type: 'julia_radial', mag: 30, c_x: -7, c_y: 27, r_sample: 100, iterations: 20, flip: 1, freq: 1, phase: 0, rotate_c: 0, offset_x: 0, offset_y: 0, view_scale: 60 }
+      newData.modifiers[i] = { type: 'julia_radial', mag: 30, c_x: -7, c_y: 27, r_bottom: 80, r_top: 120, iterations: 20, flip: 1, freq: 1, phase: 0, twist: 0, offset_x: 0, offset_y: 0, view_scale: 60 }
     } else {
       newData.modifiers[i] = { type: newType, mag: 0, freq: 10, phase: 0 }
     }
@@ -251,9 +251,12 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
                     <SliderRow label="c.y" name={`m${i}_c_y`} value={mod.c_y}
                       min={settings.julia_c_y.min} max={settings.julia_c_y.max} step={settings.julia_c_y.step}
                       onChange={(v) => updateField('modifiers', 'c_y', v, i)} />
-                    <SliderRow label="radius" name={`m${i}_r_sample`} value={mod.r_sample}
+                    <SliderRow label="r bottom" name={`m${i}_r_bottom`} value={mod.r_bottom}
                       min={settings.julia_r_sample.min} max={settings.julia_r_sample.max} step={settings.julia_r_sample.step}
-                      onChange={(v) => updateField('modifiers', 'r_sample', v, i)} />
+                      onChange={(v) => updateField('modifiers', 'r_bottom', v, i)} />
+                    <SliderRow label="r top" name={`m${i}_r_top`} value={mod.r_top}
+                      min={settings.julia_r_sample.min} max={settings.julia_r_sample.max} step={settings.julia_r_sample.step}
+                      onChange={(v) => updateField('modifiers', 'r_top', v, i)} />
                     <SliderRow label="iter" name={`m${i}_iterations`} value={mod.iterations}
                       min={settings.julia_iterations.min} max={settings.julia_iterations.max} step={settings.julia_iterations.step}
                       onChange={(v) => updateField('modifiers', 'iterations', v, i)} />
@@ -272,15 +275,18 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
                     <SliderRow label="phase" name={`m${i}_phase`} value={mod.phase}
                       min={settings.julia_phase.min} max={settings.julia_phase.max} step={settings.julia_phase.step}
                       onChange={(v) => updateField('modifiers', 'phase', v, i)} />
-                    <SliderRow label="rotate c" name={`m${i}_rotate_c`} value={mod.rotate_c}
-                      min={settings.julia_rotate_c.min} max={settings.julia_rotate_c.max} step={settings.julia_rotate_c.step}
-                      onChange={(v) => updateField('modifiers', 'rotate_c', v, i)} />
+                    <SliderRow label="twist" name={`m${i}_twist`} value={mod.twist}
+                      min={settings.julia_twist.min} max={settings.julia_twist.max} step={settings.julia_twist.step}
+                      onChange={(v) => updateField('modifiers', 'twist', v, i)} />
                     <div className="mt-2">
                       <JuliaViewer
                         c_x={mod.c_x}
                         c_y={mod.c_y}
                         iterations={mod.iterations}
-                        r_sample={mod.r_sample}
+                        r_bottom={mod.r_bottom}
+                        r_top={mod.r_top}
+                        phase={mod.phase}
+                        twist={mod.twist}
                         flip={mod.flip}
                         offset_x={mod.offset_x || 0}
                         offset_y={mod.offset_y || 0}
