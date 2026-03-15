@@ -47,6 +47,24 @@ export default class VaseGenerator
             // effective radii in complex units: fixed pixel radius / current zoom
             mod.r_bottom = parseFloat(mod.r_bottom) / 100 * 60 / mod.view_scale
             mod.r_top = parseFloat(mod.r_top) / 100 * 60 / mod.view_scale
+        } else if (mod.type === 'julia_edge_find') {
+            mod.c_x = parseFloat(mod.c_x) / 100
+            mod.c_y = parseFloat(mod.c_y) / 100
+            mod.iterations = parseInt(mod.iterations)
+            mod.c_x_top = mod.c_x_top !== undefined ? parseFloat(mod.c_x_top) / 100 : mod.c_x
+            mod.c_y_top = mod.c_y_top !== undefined ? parseFloat(mod.c_y_top) / 100 : mod.c_y
+            mod.iterations_top = mod.iterations_top !== undefined ? parseInt(mod.iterations_top) : mod.iterations
+            mod.threshold = parseFloat(mod.threshold)
+            mod.flip = parseFloat(mod.flip)
+            mod.freq = parseFloat(mod.freq)
+            mod.phase = parseFloat(mod.phase) / 100
+            mod.twist = parseFloat(mod.twist || 0) * Math.PI / 100
+            mod.offset_x = parseFloat(mod.offset_x || 0)
+            mod.offset_y = parseFloat(mod.offset_y || 0)
+            mod.view_scale = parseFloat(mod.view_scale || 60)
+            mod.r_bottom = parseFloat(mod.r_bottom) / 100 * 60 / mod.view_scale
+            mod.r_top    = parseFloat(mod.r_top)    / 100 * 60 / mod.view_scale
+            mod.folds = parseInt(mod.folds || 2)
         }
     })
     params.modifiers = modifiers
@@ -54,8 +72,10 @@ export default class VaseGenerator
   }
   
   static generateGeometry(vase) {
-
-    let geometry = vase.solid ? this.generateSolidGeometry(vase) : this.generateHollowGeometry(vase)
+    const edgeMod = vase.modifiers.find(m => m.type === 'julia_edge_find')
+    let geometry = edgeMod
+      ? this.generateJuliaEdgeGeometry(vase, edgeMod)
+      : (vase.solid ? this.generateSolidGeometry(vase) : this.generateHollowGeometry(vase))
     this.transformGeometry(geometry, vase)
     return geometry
   }
@@ -199,10 +219,309 @@ export default class VaseGenerator
     return geometry
   }
   
+  // Returns the largest iso-contour polygon as [{x, y}, ...] in complex coords
+  static juliaContour(c_x, c_y, iterations, targetIter, gridSize, offset_x, offset_y, r_top, flip, folds = 2) {
+    const N = gridSize + 1
+    const iters = new Float32Array(N * N)
+    for (let j = 0; j < N; j++) {
+      for (let i = 0; i < N; i++) {
+        const zr = offset_x + (i / gridSize * 2 - 1) * r_top
+        const zi = offset_y + flip * ((j / gridSize * 2 - 1) * r_top)
+        iters[j * N + i] = folds === 2
+          ? VaseGenerator.juliaIter(zr, zi, c_x, c_y, iterations)
+          : VaseGenerator.juliaIterN(zr, zi, c_x, c_y, iterations, folds)
+      }
+    }
+
+    // Marching squares: case index = bit3=TL, bit2=TR, bit1=BR, bit0=BL
+    // Edges per cell: 0=top, 1=right, 2=bottom, 3=left
+    const msEdgeTable = [
+      [],            [[3,2]], [[2,1]], [[3,1]],
+      [[1,0]], [[3,0],[1,2]], [[2,0]], [[3,0]],
+      [[0,3]],  [[0,2]], [[2,3],[0,1]], [[0,1]],
+      [[1,3]],  [[1,2]],      [[2,3]],      [],
+    ]
+
+    // Canonical edge key: H_ci_row (horizontal, between col ci and ci+1 at row)
+    //                     V_col_cj (vertical, at col between row cj and cj+1)
+    const cellEdgeKey = (ci, cj, edge) => {
+      if (edge === 0) return `H_${ci}_${cj+1}`
+      if (edge === 1) return `V_${ci+1}_${cj}`
+      if (edge === 2) return `H_${ci}_${cj}`
+                      return `V_${ci}_${cj}`
+    }
+
+    const edgePtCache = new Map()
+    const getEdgePt = (key) => {
+      if (edgePtCache.has(key)) return edgePtCache.get(key)
+      const us = key.indexOf('_'), vs = key.indexOf('_', us + 1)
+      const type = key[0]
+      const a = parseInt(key.slice(us + 1, vs)), b = parseInt(key.slice(vs + 1))
+      let pt
+      if (type === 'H') {
+        const vA = iters[b * N + a], vB = iters[b * N + (a + 1)]
+        const t = Math.abs(vB - vA) < 1e-9 ? 0.5 : Math.max(0, Math.min(1, (targetIter - vA) / (vB - vA)))
+        const xA = offset_x + (a / gridSize * 2 - 1) * r_top
+        const xB = offset_x + ((a + 1) / gridSize * 2 - 1) * r_top
+        const y  = offset_y + flip * ((b / gridSize * 2 - 1) * r_top)
+        pt = { x: xA + t * (xB - xA), y }
+      } else {
+        const vA = iters[b * N + a], vB = iters[(b + 1) * N + a]
+        const t = Math.abs(vB - vA) < 1e-9 ? 0.5 : Math.max(0, Math.min(1, (targetIter - vA) / (vB - vA)))
+        const x  = offset_x + (a / gridSize * 2 - 1) * r_top
+        const yA = offset_y + flip * ((b / gridSize * 2 - 1) * r_top)
+        const yB = offset_y + flip * (((b + 1) / gridSize * 2 - 1) * r_top)
+        pt = { x, y: yA + t * (yB - yA) }
+      }
+      edgePtCache.set(key, pt)
+      return pt
+    }
+
+    // Build adjacency graph (each iso-contour node has degree 2)
+    const adjacency = new Map()
+    for (let cj = 0; cj < gridSize; cj++) {
+      for (let ci = 0; ci < gridSize; ci++) {
+        const vBL = iters[cj * N + ci],      vBR = iters[cj * N + (ci + 1)]
+        const vTR = iters[(cj+1) * N + (ci+1)], vTL = iters[(cj+1) * N + ci]
+        const idx = ((vTL >= targetIter ? 1 : 0) << 3) | ((vTR >= targetIter ? 1 : 0) << 2) |
+                    ((vBR >= targetIter ? 1 : 0) << 1) |  (vBL >= targetIter ? 1 : 0)
+        for (const [e0, e1] of msEdgeTable[idx]) {
+          const k0 = cellEdgeKey(ci, cj, e0), k1 = cellEdgeKey(ci, cj, e1)
+          getEdgePt(k0); getEdgePt(k1)
+          if (!adjacency.has(k0)) adjacency.set(k0, [])
+          if (!adjacency.has(k1)) adjacency.set(k1, [])
+          adjacency.get(k0).push(k1)
+          adjacency.get(k1).push(k0)
+        }
+      }
+    }
+
+    if (adjacency.size === 0) {
+      const pts = []
+      for (let i = 0; i < 64; i++) {
+        const a = i / 64 * 2 * Math.PI
+        pts.push({ x: offset_x + r_top * 0.5 * Math.cos(a), y: offset_y + r_top * 0.5 * Math.sin(a) })
+      }
+      return pts
+    }
+
+    // Trace closed polygons
+    const visited = new Set()
+    const polygons = []
+    for (const startKey of adjacency.keys()) {
+      if (visited.has(startKey)) continue
+      const poly = [startKey]
+      visited.add(startKey)
+      let current = startKey
+      while (true) {
+        const neighbors = adjacency.get(current)
+        let next = null
+        for (const nb of neighbors) {
+          if (!visited.has(nb)) { next = nb; break }
+        }
+        if (next === null) break
+        poly.push(next)
+        visited.add(next)
+        current = next
+      }
+      if (poly.length > 2) polygons.push(poly.map(k => getEdgePt(k)))
+    }
+
+    if (polygons.length === 0) {
+      const pts = []
+      for (let i = 0; i < 64; i++) {
+        const a = i / 64 * 2 * Math.PI
+        pts.push({ x: offset_x + r_top * 0.5 * Math.cos(a), y: offset_y + r_top * 0.5 * Math.sin(a) })
+      }
+      return pts
+    }
+
+    // Pick largest polygon by arc length
+    let bestPoly = null, bestLen = -1
+    for (const poly of polygons) {
+      let len = 0
+      const n = poly.length
+      for (let i = 0; i < n; i++) {
+        const dx = poly[(i+1) % n].x - poly[i].x, dy = poly[(i+1) % n].y - poly[i].y
+        len += Math.sqrt(dx*dx + dy*dy)
+      }
+      if (len > bestLen) { bestLen = len; bestPoly = poly }
+    }
+    return bestPoly
+  }
+
+  // Resample closed contour to N arc-length-uniform points, starting nearest to startAngle from (cx,cy)
+  static resampleContour(contour, N, startAngle, cx, cy) {
+    const n = contour.length
+    if (n < 2) {
+      const pts = []
+      for (let i = 0; i < N; i++) pts.push({ x: cx, y: cy })
+      return pts
+    }
+
+    let startIdx = 0, bestDiff = Infinity
+    for (let i = 0; i < n; i++) {
+      const angle = Math.atan2(contour[i].y - cy, contour[i].x - cx)
+      const diff = Math.abs(((angle - startAngle + 3 * Math.PI) % (2 * Math.PI)) - Math.PI)
+      if (diff < bestDiff) { bestDiff = diff; startIdx = i }
+    }
+
+    // Reorder to start at startIdx
+    const ordered = []
+    for (let i = 0; i < n; i++) ordered.push(contour[(startIdx + i) % n])
+
+    // Cumulative arc lengths (closed: last segment wraps to [0])
+    const arcLens = [0]
+    for (let i = 0; i < n; i++) {
+      const nx = ordered[(i + 1) % n], cx2 = ordered[i]
+      const dx = nx.x - cx2.x, dy = nx.y - cx2.y
+      arcLens.push(arcLens[i] + Math.sqrt(dx*dx + dy*dy))
+    }
+    const totalLen = arcLens[n]
+
+    const result = []
+    for (let k = 0; k < N; k++) {
+      const target = k / N * totalLen
+      let lo = 0, hi = n - 1
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1
+        if (arcLens[mid + 1] < target) lo = mid + 1
+        else hi = mid
+      }
+      const segLen = arcLens[lo + 1] - arcLens[lo]
+      const t = segLen < 1e-12 ? 0 : (target - arcLens[lo]) / segLen
+      const a = ordered[lo], b = ordered[(lo + 1) % n]
+      result.push({ x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) })
+    }
+    return result
+  }
+
+  static generateJuliaEdgeGeometry(vase, modifier) {
+    const { heightSegments, radialSegments, height, width, slope, thickness, baseThickness } = vase
+    const R = radialSegments
+
+    const GRID = 128
+    const targetIterBottom = Math.round(modifier.threshold / 100 * modifier.iterations)
+    const targetIterTop    = Math.round(modifier.threshold / 100 * modifier.iterations_top)
+    const contourBottom = VaseGenerator.juliaContour(
+      modifier.c_x, modifier.c_y, modifier.iterations, targetIterBottom,
+      GRID, modifier.offset_x, modifier.offset_y, modifier.r_top, modifier.flip, modifier.folds
+    )
+    const contourTop = VaseGenerator.juliaContour(
+      modifier.c_x_top, modifier.c_y_top, modifier.iterations_top, targetIterTop,
+      GRID, modifier.offset_x, modifier.offset_y, modifier.r_top, modifier.flip, modifier.folds
+    )
+
+    const cx = modifier.offset_x, cy = modifier.offset_y
+
+    const rotateContour = (contour, angle) => {
+      if (Math.abs(angle) <= 1e-10) return contour
+      const cosA = Math.cos(angle), sinA = Math.sin(angle)
+      return contour.map(p => {
+        const dx = p.x - cx, dy = p.y - cy
+        return { x: cx + dx * cosA - dy * sinA, y: cy + dx * sinA + dy * cosA }
+      })
+    }
+
+    // Build outer slices: rotate + resample both contours, lerp by t
+    const outerSlices = []
+    for (let j = 0; j <= heightSegments; j++) {
+      const t = j / heightSegments
+      const y = -height / 2 + j * height / heightSegments
+      const rotAngle = modifier.twist * t
+      const startAngle = modifier.phase * 2 * Math.PI + rotAngle
+
+      const resampledBottom = VaseGenerator.resampleContour(rotateContour(contourBottom, rotAngle), R, startAngle, cx, cy)
+      const resampledTop    = VaseGenerator.resampleContour(rotateContour(contourTop,    rotAngle), R, startAngle, cx, cy)
+      const lerped = resampledBottom.map((p, i) => ({
+        x: p.x + t * (resampledTop[i].x - p.x),
+        y: p.y + t * (resampledTop[i].y - p.y),
+      }))
+      const scale = (width + t * height * slope) / modifier.r_top
+      outerSlices.push(lerped.map(p => ({ x: p.x * scale, y, z: p.y * scale })))
+    }
+
+    // Inner slices: scale toward vase axis
+    const innerSlices = outerSlices.map(slice =>
+      slice.map(p => ({ x: p.x * (1 - thickness), y: p.y, z: p.z * (1 - thickness) }))
+    )
+
+    const positions = []
+    const push3 = (p) => positions.push(p.x, p.y, p.z)
+
+    // Outer wall: CCW from outside → outward normals
+    for (let j = 0; j < heightSegments; j++) {
+      for (let i = 0; i < R; i++) {
+        const ni = (i + 1) % R
+        const p00 = outerSlices[j][i],    p10 = outerSlices[j][ni]
+        const p11 = outerSlices[j+1][ni], p01 = outerSlices[j+1][i]
+        push3(p00); push3(p10); push3(p11)
+        push3(p00); push3(p11); push3(p01)
+      }
+    }
+
+    // Inner wall: reversed winding → inward normals
+    for (let j = 0; j < heightSegments; j++) {
+      for (let i = 0; i < R; i++) {
+        const ni = (i + 1) % R
+        const p00 = innerSlices[j][i],    p10 = innerSlices[j][ni]
+        const p11 = innerSlices[j+1][ni], p01 = innerSlices[j+1][i]
+        push3(p00); push3(p11); push3(p10)
+        push3(p00); push3(p01); push3(p11)
+      }
+    }
+
+    // Top ring: CCW from above → upward normals
+    const jTop = heightSegments
+    for (let i = 0; i < R; i++) {
+      const ni = (i + 1) % R
+      const po0 = outerSlices[jTop][i],  po1 = outerSlices[jTop][ni]
+      const pi0 = innerSlices[jTop][i],  pi1 = innerSlices[jTop][ni]
+      push3(po0); push3(po1); push3(pi1)
+      push3(po0); push3(pi1); push3(pi0)
+    }
+
+    // Bottom cap (solid outer base): CCW from below → downward normals
+    const bCenter = { x: 0, y: -height / 2, z: 0 }
+    for (let i = 0; i < R; i++) {
+      const ni = (i + 1) % R
+      push3(bCenter); push3(outerSlices[0][ni]); push3(outerSlices[0][i])
+    }
+
+    // Inner base cap at y = baseThickness above bottom: CCW from above → upward normals
+    const innerBaseY = -height / 2 + baseThickness
+    const ibCenter = { x: 0, y: innerBaseY, z: 0 }
+    for (let i = 0; i < R; i++) {
+      const ni = (i + 1) % R
+      const p0 = { ...innerSlices[1][i],  y: innerBaseY }
+      const p1 = { ...innerSlices[1][ni], y: innerBaseY }
+      push3(ibCenter); push3(p0); push3(p1)
+    }
+
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+    geometry.computeVertexNormals()
+    return geometry
+  }
+
   static juliaIter(zr, zi, cr, ci, maxIter) {
     let iter = 0
     while (iter < maxIter && zr*zr + zi*zi < 4) {
         const newZr = zr*zr - zi*zi + cr; zi = 2*zr*zi + ci; zr = newZr; iter++
+    }
+    return iter
+  }
+
+  static juliaIterN(zr, zi, cr, ci, maxIter, n) {
+    let iter = 0
+    while (iter < maxIter && zr*zr + zi*zi < 4) {
+      const r_z = Math.sqrt(zr*zr + zi*zi)
+      const theta = Math.atan2(zi, zr)
+      const rn = Math.pow(r_z, n)
+      const newZr = rn * Math.cos(n * theta) + cr
+      zi = rn * Math.sin(n * theta) + ci
+      zr = newZr
+      iter++
     }
     return iter
   }
@@ -243,6 +562,8 @@ export default class VaseGenerator
                 const zi = modifier.offset_y + modifier.flip * r * Math.sin(arg)
                 const iter = VaseGenerator.juliaIter(zr, zi, modifier.c_x, modifier.c_y, modifier.iterations)
                 cylinderical.radius += modifier.mag * (iter / modifier.iterations)
+            } else if (modifier.type === 'julia_edge_find') {
+                // geometry shape already applied in generateJuliaEdgeGeometry; skip here
             }
         })
   
