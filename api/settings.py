@@ -7,8 +7,8 @@ default_vase = {
      },
 
      "generic1" : {
-        "radial_steps" : 50,
-        "vertical_steps" : 50,
+        "radial_steps" : 300,
+        "vertical_steps" : 300,
         "slope"  : 50,
      },
 
@@ -50,12 +50,12 @@ settings = {
         },
     "vertical_steps" : {
         "min" : 3,
-        "max" : 150,
+        "max" : 300,
         "step" : 1,
         },
     "radial_steps" : {
         "min" : 4,
-        "max" : 150,
+        "max" : 300,
         "step" : 1,
         },
     "radial_mag" : {
@@ -171,6 +171,16 @@ settings = {
     "julia_twist" : {
         "min" : -100,
         "max" : 100,
+        "step" : 1,
+        },
+    "julia_edge_threshold" : {
+        "min" : 0,
+        "max" : 100,
+        "step" : 1,
+        },
+    "julia_edge_folds" : {
+        "min" : 2,
+        "max" : 8,
         "step" : 1,
         },
 }

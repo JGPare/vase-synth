@@ -23,6 +23,7 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
   } = useVaseStore()
 
   const [vaseColor, setVaseColor] = useState('#560bad')
+  const [juliaEdgeView, setJuliaEdgeView] = useState({})
 
   useEffect(() => {
     loadSettings()
@@ -98,6 +99,8 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
       newData.modifiers[i] = { type: newType, mag: 0, freq: 10, twist: 0, phase: 0 }
     } else if (newType === 'julia_radial') {
       newData.modifiers[i] = { type: 'julia_radial', mag: 30, c_x: -7, c_y: 27, r_bottom: 80, r_top: 120, iterations: 20, flip: 1, freq: 1, phase: 0, twist: 0, offset_x: 0, offset_y: 0, view_scale: 60 }
+    } else if (newType === 'julia_edge_find') {
+      newData.modifiers[i] = { type: 'julia_edge_find', c_x: -7, c_y: 27, c_x_top: -7, c_y_top: 27, r_bottom: 60, r_top: 150, iterations: 20, iterations_top: 20, threshold: 90, folds: 2, flip: 1, freq: 1, phase: 0, twist: 0, offset_x: 0, offset_y: 0, view_scale: 60 }
     } else {
       newData.modifiers[i] = { type: newType, mag: 0, freq: 10, phase: 0 }
     }
@@ -217,7 +220,8 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
           const prefix = mod.type === 'sin_radial' ? 'radial'
             : mod.type === 'sin_vertical' ? 'vertical'
             : mod.type === 'tri_radial' ? 'tri_radial'
-            : 'tri_vertical'
+            : mod.type === 'tri_vertical' ? 'tri_vertical'
+            : 'radial'
           return (
             <div key={i} className="mb-3">
               <div className="flex items-center gap-2 mb-1">
@@ -231,6 +235,7 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
                   <option value="tri_radial">tri radial</option>
                   <option value="tri_vertical">tri vertical</option>
                   <option value="julia_radial">julia radial</option>
+                  <option value="julia_edge_find">julia edge</option>
                 </select>
                 <button
                   onClick={() => removeModifier(i)}
@@ -240,7 +245,92 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
                 </button>
               </div>
               <div className="space-y-1">
-                {mod.type === 'julia_radial' ? (
+                {mod.type === 'julia_edge_find' ? (
+                  <>
+                    <div className="border border-gray-600 rounded p-1.5 space-y-1">
+                      <div className="flex items-center gap-1 mb-0.5">
+                        <span className="text-xs text-gray-400 flex-1">c / iter</span>
+                        <button
+                          onClick={() => setJuliaEdgeView(prev => ({ ...prev, [i]: 'bottom' }))}
+                          className={`px-2 py-0.5 rounded text-xs ${(juliaEdgeView[i] || 'bottom') === 'bottom' ? 'bg-blue-600' : 'bg-gray-600'}`}
+                        >bottom</button>
+                        <button
+                          onClick={() => setJuliaEdgeView(prev => ({ ...prev, [i]: 'top' }))}
+                          className={`px-2 py-0.5 rounded text-xs ${juliaEdgeView[i] === 'top' ? 'bg-orange-500' : 'bg-gray-600'}`}
+                        >top</button>
+                      </div>
+                      {(juliaEdgeView[i] || 'bottom') === 'bottom' ? (<>
+                        <SliderRow label="c.x" name={`m${i}_c_x`} value={mod.c_x}
+                          min={settings.julia_c_x.min} max={settings.julia_c_x.max} step={settings.julia_c_x.step}
+                          onChange={(v) => updateField('modifiers', 'c_x', v, i)} />
+                        <SliderRow label="c.y" name={`m${i}_c_y`} value={mod.c_y}
+                          min={settings.julia_c_y.min} max={settings.julia_c_y.max} step={settings.julia_c_y.step}
+                          onChange={(v) => updateField('modifiers', 'c_y', v, i)} />
+                        <SliderRow label="iter" name={`m${i}_iterations`} value={mod.iterations}
+                          min={settings.julia_iterations.min} max={settings.julia_iterations.max} step={settings.julia_iterations.step}
+                          onChange={(v) => updateField('modifiers', 'iterations', v, i)} />
+                      </>) : (<>
+                        <SliderRow label="c.x" name={`m${i}_c_x_top`} value={mod.c_x_top ?? mod.c_x}
+                          min={settings.julia_c_x.min} max={settings.julia_c_x.max} step={settings.julia_c_x.step}
+                          onChange={(v) => updateField('modifiers', 'c_x_top', v, i)} />
+                        <SliderRow label="c.y" name={`m${i}_c_y_top`} value={mod.c_y_top ?? mod.c_y}
+                          min={settings.julia_c_y.min} max={settings.julia_c_y.max} step={settings.julia_c_y.step}
+                          onChange={(v) => updateField('modifiers', 'c_y_top', v, i)} />
+                        <SliderRow label="iter" name={`m${i}_iterations_top`} value={mod.iterations_top ?? mod.iterations}
+                          min={settings.julia_iterations.min} max={settings.julia_iterations.max} step={settings.julia_iterations.step}
+                          onChange={(v) => updateField('modifiers', 'iterations_top', v, i)} />
+                      </>)}
+                    </div>
+                    <SliderRow label="r bottom" name={`m${i}_r_bottom`} value={mod.r_bottom}
+                      min={settings.julia_r_sample.min} max={settings.julia_r_sample.max} step={settings.julia_r_sample.step}
+                      onChange={(v) => updateField('modifiers', 'r_bottom', v, i)} />
+                    <SliderRow label="r top" name={`m${i}_r_top`} value={mod.r_top}
+                      min={settings.julia_r_sample.min} max={settings.julia_r_sample.max} step={settings.julia_r_sample.step}
+                      onChange={(v) => updateField('modifiers', 'r_top', v, i)} />
+                    <SliderRow label="threshold" name={`m${i}_threshold`} value={mod.threshold}
+                      min={settings.julia_edge_threshold?.min ?? 0} max={settings.julia_edge_threshold?.max ?? 100} step={settings.julia_edge_threshold?.step ?? 1}
+                      onChange={(v) => updateField('modifiers', 'threshold', v, i)} />
+                    <SliderRow label="folds" name={`m${i}_folds`} value={mod.folds ?? 2}
+                      min={settings.julia_edge_folds?.min ?? 2} max={settings.julia_edge_folds?.max ?? 8} step={settings.julia_edge_folds?.step ?? 1}
+                      onChange={(v) => updateField('modifiers', 'folds', v, i)} />
+                    <div className="flex items-center gap-2 py-0.5">
+                      <span className="text-xs text-gray-400 w-16">flip</span>
+                      <button
+                        onClick={() => updateField('modifiers', 'flip', mod.flip === 1 ? -1 : 1, i)}
+                        className={`px-2 py-0.5 rounded text-xs ${mod.flip === -1 ? 'bg-purple-600' : 'bg-gray-600'}`}
+                      >
+                        {mod.flip === 1 ? 'normal' : 'flipped'}
+                      </button>
+                    </div>
+                    <SliderRow label="freq" name={`m${i}_freq`} value={mod.freq}
+                      min={settings.julia_freq.min} max={settings.julia_freq.max} step={settings.julia_freq.step}
+                      onChange={(v) => updateField('modifiers', 'freq', v, i)} />
+                    <SliderRow label="phase" name={`m${i}_phase`} value={mod.phase}
+                      min={settings.julia_phase.min} max={settings.julia_phase.max} step={settings.julia_phase.step}
+                      onChange={(v) => updateField('modifiers', 'phase', v, i)} />
+                    <SliderRow label="twist" name={`m${i}_twist`} value={mod.twist}
+                      min={settings.julia_twist.min} max={settings.julia_twist.max} step={settings.julia_twist.step}
+                      onChange={(v) => updateField('modifiers', 'twist', v, i)} />
+                    <div className="mt-2">
+                      <JuliaViewer
+                        c_x={juliaEdgeView[i] === 'top' ? (mod.c_x_top ?? mod.c_x) : mod.c_x}
+                        c_y={juliaEdgeView[i] === 'top' ? (mod.c_y_top ?? mod.c_y) : mod.c_y}
+                        iterations={juliaEdgeView[i] === 'top' ? (mod.iterations_top ?? mod.iterations) : mod.iterations}
+                        r_bottom={mod.r_bottom}
+                        r_top={mod.r_top}
+                        phase={mod.phase}
+                        twist={mod.twist}
+                        flip={mod.flip}
+                        folds={mod.folds ?? 2}
+                        offset_x={mod.offset_x || 0}
+                        offset_y={mod.offset_y || 0}
+                        view_scale={mod.view_scale || 60}
+                        onOffsetChange={(ox, oy) => updateFields('modifiers', { offset_x: ox, offset_y: oy }, i)}
+                        onScaleChange={(s) => updateField('modifiers', 'view_scale', s, i)}
+                      />
+                    </div>
+                  </>
+                ) : mod.type === 'julia_radial' ? (
                   <>
                     <SliderRow label="amount" name={`m${i}_mag`} value={mod.mag}
                       min={settings.julia_mag.min} max={settings.julia_mag.max} step={settings.julia_mag.step}

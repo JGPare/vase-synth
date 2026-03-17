@@ -414,6 +414,20 @@ export default class VaseGenerator
 
     const cx = modifier.offset_x, cy = modifier.offset_y
 
+    // Marching squares winding is non-deterministic; normalize both contours to CW
+    // so the mesh normals are consistent (outer wall faces out, top cap faces up).
+    const signedArea = (c) => {
+      let a = 0
+      for (let i = 0; i < c.length; i++) {
+        const j = (i + 1) % c.length
+        a += (c[i].x - cx) * (c[j].y - cy) - (c[j].x - cx) * (c[i].y - cy)
+      }
+      return a
+    }
+    const ensureCW = (c) => signedArea(c) < 0 ? c : [...c].reverse()
+    const contourBottomCW = ensureCW(contourBottom)
+    const contourTopCW    = ensureCW(contourTop)
+
     const rotateContour = (contour, angle) => {
       if (Math.abs(angle) <= 1e-10) return contour
       const cosA = Math.cos(angle), sinA = Math.sin(angle)
@@ -431,8 +445,8 @@ export default class VaseGenerator
       const rotAngle = modifier.twist * t
       const startAngle = modifier.phase * 2 * Math.PI + rotAngle
 
-      const resampledBottom = VaseGenerator.resampleContour(rotateContour(contourBottom, rotAngle), R, startAngle, cx, cy)
-      const resampledTop    = VaseGenerator.resampleContour(rotateContour(contourTop,    rotAngle), R, startAngle, cx, cy)
+      const resampledBottom = VaseGenerator.resampleContour(rotateContour(contourBottomCW, rotAngle), R, startAngle, cx, cy)
+      const resampledTop    = VaseGenerator.resampleContour(rotateContour(contourTopCW,    rotAngle), R, startAngle, cx, cy)
       const lerped = resampledBottom.map((p, i) => ({
         x: p.x + t * (resampledTop[i].x - p.x),
         y: p.y + t * (resampledTop[i].y - p.y),
@@ -460,25 +474,39 @@ export default class VaseGenerator
       }
     }
 
-    // Inner wall: reversed winding → inward normals
-    for (let j = 0; j < heightSegments; j++) {
-      for (let i = 0; i < R; i++) {
-        const ni = (i + 1) % R
-        const p00 = innerSlices[j][i],    p10 = innerSlices[j][ni]
-        const p11 = innerSlices[j+1][ni], p01 = innerSlices[j+1][i]
-        push3(p00); push3(p11); push3(p10)
-        push3(p00); push3(p01); push3(p11)
+    const jTop = heightSegments
+    const solid = thickness >= 1
+
+    if (!solid) {
+      // Inner wall: reversed winding → inward normals
+      for (let j = 0; j < heightSegments; j++) {
+        for (let i = 0; i < R; i++) {
+          const ni = (i + 1) % R
+          const p00 = innerSlices[j][i],    p10 = innerSlices[j][ni]
+          const p11 = innerSlices[j+1][ni], p01 = innerSlices[j+1][i]
+          push3(p00); push3(p11); push3(p10)
+          push3(p00); push3(p01); push3(p11)
+        }
       }
     }
 
-    // Top ring: CCW from above → upward normals
-    const jTop = heightSegments
-    for (let i = 0; i < R; i++) {
-      const ni = (i + 1) % R
-      const po0 = outerSlices[jTop][i],  po1 = outerSlices[jTop][ni]
-      const pi0 = innerSlices[jTop][i],  pi1 = innerSlices[jTop][ni]
-      push3(po0); push3(po1); push3(pi1)
-      push3(po0); push3(pi1); push3(pi0)
+    // Top cap
+    if (solid) {
+      // Solid: fan from center to outer ring
+      const tCenter = { x: 0, y: outerSlices[jTop][0].y, z: 0 }
+      for (let i = 0; i < R; i++) {
+        const ni = (i + 1) % R
+        push3(tCenter); push3(outerSlices[jTop][i]); push3(outerSlices[jTop][ni])
+      }
+    } else {
+      // Hollow: annular ring connecting outer to inner
+      for (let i = 0; i < R; i++) {
+        const ni = (i + 1) % R
+        const po0 = outerSlices[jTop][i],  po1 = outerSlices[jTop][ni]
+        const pi0 = innerSlices[jTop][i],  pi1 = innerSlices[jTop][ni]
+        push3(po0); push3(po1); push3(pi1)
+        push3(po0); push3(pi1); push3(pi0)
+      }
     }
 
     // Bottom cap (solid outer base): CCW from below → downward normals
@@ -488,14 +516,16 @@ export default class VaseGenerator
       push3(bCenter); push3(outerSlices[0][ni]); push3(outerSlices[0][i])
     }
 
-    // Inner base cap at y = baseThickness above bottom: CCW from above → upward normals
-    const innerBaseY = -height / 2 + baseThickness
-    const ibCenter = { x: 0, y: innerBaseY, z: 0 }
-    for (let i = 0; i < R; i++) {
-      const ni = (i + 1) % R
-      const p0 = { ...innerSlices[1][i],  y: innerBaseY }
-      const p1 = { ...innerSlices[1][ni], y: innerBaseY }
-      push3(ibCenter); push3(p0); push3(p1)
+    if (!solid) {
+      // Inner base cap at y = baseThickness above bottom: CCW from above → upward normals
+      const innerBaseY = -height / 2 + baseThickness
+      const ibCenter = { x: 0, y: innerBaseY, z: 0 }
+      for (let i = 0; i < R; i++) {
+        const ni = (i + 1) % R
+        const p0 = { ...innerSlices[1][i],  y: innerBaseY }
+        const p1 = { ...innerSlices[1][ni], y: innerBaseY }
+        push3(ibCenter); push3(p0); push3(p1)
+      }
     }
 
     const geometry = new THREE.BufferGeometry()

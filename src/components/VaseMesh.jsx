@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useVaseStore } from '../stores/vaseStore'
 import VaseGenerator from '../lib/VaseGenerator'
@@ -18,6 +18,8 @@ export default function VaseMesh({ meshRef, appearance, spinSpeed = 0.5 }) {
     geom.computeBoundingBox()
     return geom
   }, [vaseData])
+
+  useEffect(() => () => { geometry?.dispose() }, [geometry])
 
   const yOffset = useMemo(() => {
     if (!geometry || !geometry.boundingBox) return 0

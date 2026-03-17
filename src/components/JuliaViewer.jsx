@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 
-export default function JuliaViewer({ c_x, c_y, iterations, r_bottom, r_top, phase, twist, flip, offset_x, offset_y, view_scale, onOffsetChange, onScaleChange }) {
+export default function JuliaViewer({ c_x, c_y, iterations, r_bottom, r_top, phase, twist, flip, folds = 2, offset_x, offset_y, view_scale, onOffsetChange, onScaleChange }) {
   const canvasRef = useRef(null)
   const [viewX, setViewX] = useState(-(offset_x || 0))
   const [viewY, setViewY] = useState(-(offset_y || 0))
@@ -28,11 +28,22 @@ export default function JuliaViewer({ c_x, c_y, iterations, r_bottom, r_top, pha
         if (flip === -1) zi = -zi
 
         let iter = 0
-        while (iter < iterations && zr * zr + zi * zi < 4) {
-          const newZr = zr * zr - zi * zi + cr
-          zi = 2 * zr * zi + ci
-          zr = newZr
-          iter++
+        if (folds === 2) {
+          while (iter < iterations && zr * zr + zi * zi < 4) {
+            const newZr = zr * zr - zi * zi + cr
+            zi = 2 * zr * zi + ci
+            zr = newZr
+            iter++
+          }
+        } else {
+          while (iter < iterations && zr * zr + zi * zi < 4) {
+            const rn = Math.pow(Math.sqrt(zr * zr + zi * zi), folds)
+            const theta = Math.atan2(zi, zr) * folds
+            const newZr = rn * Math.cos(theta) + cr
+            zi = rn * Math.sin(theta) + ci
+            zr = newZr
+            iter++
+          }
         }
 
         const idx = (py * SIZE + px) * 4
@@ -88,7 +99,7 @@ export default function JuliaViewer({ c_x, c_y, iterations, r_bottom, r_top, pha
     ctx.fillStyle = 'rgba(255,160,50,1)'
     ctx.fill()
 
-  }, [cr, ci, iterations, r_bottom, r_top, phase, twist, flip, viewX, viewY, scale])
+  }, [cr, ci, iterations, r_bottom, r_top, phase, twist, flip, folds, viewX, viewY, scale])
 
   const commitOffset = useCallback((vx, vy) => {
     onOffsetChange?.(-vx, -vy)
