@@ -11,11 +11,13 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
     vaseName,
     access,
     appearance,
+    focusedJuliaIndex,
     loadSettings,
     setVaseData,
     setVaseName,
     setAccess,
     setAppearance,
+    setFocusedJuliaIndex,
     saveVase,
     loadRandom,
     loadDefault,
@@ -77,10 +79,12 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
     saveVase(data)
   }
 
+  const isJuliaType = (t) => t === 'julia_radial' || t === 'julia_edge_find'
+
   const addModifier = () => {
     if (!vaseData || vaseData.modifiers.length >= 6) return
     const newData = JSON.parse(JSON.stringify(vaseData))
-    newData.modifiers.push({ type: 'sin_radial', mag: 0, freq: 10, twist: 0, phase: 0 })
+    newData.modifiers.push({ type: 'sin_radial', mag: 0, freq: 10, phase: 0 })
     setVaseData(newData)
   }
 
@@ -96,15 +100,20 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
     const newData = JSON.parse(JSON.stringify(vaseData))
     const isRadial = newType === 'sin_radial' || newType === 'tri_radial'
     if (isRadial) {
-      newData.modifiers[i] = { type: newType, mag: 0, freq: 10, twist: 0, phase: 0 }
+      newData.modifiers[i] = { type: newType, mag: 0, freq: 10, phase: 0 }
     } else if (newType === 'julia_radial') {
-      newData.modifiers[i] = { type: 'julia_radial', mag: 30, c_x: -7, c_y: 27, r_bottom: 80, r_top: 120, iterations: 20, flip: 1, freq: 1, phase: 0, twist: 0, offset_x: 0, offset_y: 0, view_scale: 60 }
+      newData.modifiers[i] = { type: 'julia_radial', mag: 30, c_x: -7, c_y: 27, r_bottom: 80, r_top: 120, iterations: 20, flip: 1, freq: 1, phase: 0, offset_x: 0, offset_y: 0, view_scale: 60 }
     } else if (newType === 'julia_edge_find') {
-      newData.modifiers[i] = { type: 'julia_edge_find', c_x: -7, c_y: 27, c_x_top: -7, c_y_top: 27, r_bottom: 60, r_top: 150, iterations: 20, iterations_top: 20, threshold: 90, folds: 2, flip: 1, freq: 1, phase: 0, twist: 0, offset_x: 0, offset_y: 0, view_scale: 60 }
+      newData.modifiers[i] = { type: 'julia_edge_find', c_x: -7, c_y: 27, c_x_top: -7, c_y_top: 27, r_bottom: 30, r_top: 150, iterations: 20, iterations_top: 20, threshold: 90, folds: 2, flip: 1, freq: 1, phase: 0, offset_x: 0, offset_y: 0, view_scale: 120 }
+    } else if (newType === 'twist') {
+      newData.modifiers[i] = { type: 'twist', value: 0 }
+    } else if (newType === 'sin_twist') {
+      newData.modifiers[i] = { type: 'sin_twist', mag: 12, freq: 1 }
     } else {
       newData.modifiers[i] = { type: newType, mag: 0, freq: 10, phase: 0 }
     }
     setVaseData(newData)
+    if (isJuliaType(newType)) setFocusedJuliaIndex(i)
   }
 
   const handleColorChange = (e) => {
@@ -222,8 +231,12 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
             : mod.type === 'tri_radial' ? 'tri_radial'
             : mod.type === 'tri_vertical' ? 'tri_vertical'
             : 'radial'
+          const isFocusedJulia = (mod.type === 'julia_radial' || mod.type === 'julia_edge_find') && focusedJuliaIndex === i
           return (
-            <div key={i} className="mb-3">
+            <div
+              key={i}
+              className={`mb-3 ${isFocusedJulia ? 'ring-2 ring-purple-500/60 rounded p-1 -m-1' : ''}`}
+            >
               <div className="flex items-center gap-2 mb-1">
                 <select
                   value={mod.type}
@@ -236,6 +249,8 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
                   <option value="tri_vertical">tri vertical</option>
                   <option value="julia_radial">julia radial</option>
                   <option value="julia_edge_find">julia edge</option>
+                  <option value="twist">twist</option>
+                  <option value="sin_twist">sin twist</option>
                 </select>
                 <button
                   onClick={() => removeModifier(i)}
@@ -308,26 +323,31 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
                     <SliderRow label="phase" name={`m${i}_phase`} value={mod.phase}
                       min={settings.julia_phase.min} max={settings.julia_phase.max} step={settings.julia_phase.step}
                       onChange={(v) => updateField('modifiers', 'phase', v, i)} />
-                    <SliderRow label="twist" name={`m${i}_twist`} value={mod.twist}
-                      min={settings.julia_twist.min} max={settings.julia_twist.max} step={settings.julia_twist.step}
-                      onChange={(v) => updateField('modifiers', 'twist', v, i)} />
-                    <div className="mt-2">
-                      <JuliaViewer
-                        c_x={juliaEdgeView[i] === 'top' ? (mod.c_x_top ?? mod.c_x) : mod.c_x}
-                        c_y={juliaEdgeView[i] === 'top' ? (mod.c_y_top ?? mod.c_y) : mod.c_y}
-                        iterations={juliaEdgeView[i] === 'top' ? (mod.iterations_top ?? mod.iterations) : mod.iterations}
-                        r_bottom={mod.r_bottom}
-                        r_top={mod.r_top}
-                        phase={mod.phase}
-                        twist={mod.twist}
-                        flip={mod.flip}
-                        folds={mod.folds ?? 2}
-                        offset_x={mod.offset_x || 0}
-                        offset_y={mod.offset_y || 0}
-                        view_scale={mod.view_scale || 60}
-                        onOffsetChange={(ox, oy) => updateFields('modifiers', { offset_x: ox, offset_y: oy }, i)}
-                        onScaleChange={(s) => updateField('modifiers', 'view_scale', s, i)}
-                      />
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        onClick={() => setFocusedJuliaIndex(i)}
+                        className="rounded overflow-hidden ring-1 ring-gray-600 hover:ring-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        title="Open Julia picker"
+                      >
+                        <JuliaViewer
+                          c_x={juliaEdgeView[i] === 'top' ? (mod.c_x_top ?? mod.c_x) : mod.c_x}
+                          c_y={juliaEdgeView[i] === 'top' ? (mod.c_y_top ?? mod.c_y) : mod.c_y}
+                          iterations={juliaEdgeView[i] === 'top' ? (mod.iterations_top ?? mod.iterations) : mod.iterations}
+                          r_bottom={mod.r_bottom}
+                          r_top={mod.r_top}
+                          phase={mod.phase}
+                          twist={vaseData.modifiers.filter(m => m.type === 'twist').reduce((sum, m) => sum + (m.value ?? 0), 0)}
+                          flip={mod.flip}
+                          folds={mod.folds ?? 2}
+                          offset_x={mod.offset_x || 0}
+                          offset_y={mod.offset_y || 0}
+                          view_scale={mod.view_scale || 60}
+                          size={80}
+                        />
+                      </button>
+                      <span className="text-[11px] text-gray-500">
+                        {focusedJuliaIndex === i ? 'editing in picker →' : 'click to open picker'}
+                      </span>
                     </div>
                   </>
                 ) : mod.type === 'julia_radial' ? (
@@ -365,26 +385,46 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
                     <SliderRow label="phase" name={`m${i}_phase`} value={mod.phase}
                       min={settings.julia_phase.min} max={settings.julia_phase.max} step={settings.julia_phase.step}
                       onChange={(v) => updateField('modifiers', 'phase', v, i)} />
-                    <SliderRow label="twist" name={`m${i}_twist`} value={mod.twist}
-                      min={settings.julia_twist.min} max={settings.julia_twist.max} step={settings.julia_twist.step}
-                      onChange={(v) => updateField('modifiers', 'twist', v, i)} />
-                    <div className="mt-2">
-                      <JuliaViewer
-                        c_x={mod.c_x}
-                        c_y={mod.c_y}
-                        iterations={mod.iterations}
-                        r_bottom={mod.r_bottom}
-                        r_top={mod.r_top}
-                        phase={mod.phase}
-                        twist={mod.twist}
-                        flip={mod.flip}
-                        offset_x={mod.offset_x || 0}
-                        offset_y={mod.offset_y || 0}
-                        view_scale={mod.view_scale || 60}
-                        onOffsetChange={(ox, oy) => updateFields('modifiers', { offset_x: ox, offset_y: oy }, i)}
-                        onScaleChange={(s) => updateField('modifiers', 'view_scale', s, i)}
-                      />
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        onClick={() => setFocusedJuliaIndex(i)}
+                        className="rounded overflow-hidden ring-1 ring-gray-600 hover:ring-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        title="Open Julia picker"
+                      >
+                        <JuliaViewer
+                          c_x={mod.c_x}
+                          c_y={mod.c_y}
+                          iterations={mod.iterations}
+                          r_bottom={mod.r_bottom}
+                          r_top={mod.r_top}
+                          phase={mod.phase}
+                          twist={vaseData.modifiers.filter(m => m.type === 'twist').reduce((sum, m) => sum + (m.value ?? 0), 0)}
+                          flip={mod.flip}
+                          offset_x={mod.offset_x || 0}
+                          offset_y={mod.offset_y || 0}
+                          view_scale={mod.view_scale || 60}
+                          size={80}
+                        />
+                      </button>
+                      <span className="text-[11px] text-gray-500">
+                        {focusedJuliaIndex === i ? 'editing in picker →' : 'click to open picker'}
+                      </span>
                     </div>
+                  </>
+                ) : mod.type === 'twist' ? (
+                  <>
+                    <SliderRow label="value" name={`m${i}_value`} value={mod.value ?? 0}
+                      min={settings.twist_value.min} max={settings.twist_value.max} step={settings.twist_value.step}
+                      onChange={(v) => updateField('modifiers', 'value', v, i)} />
+                  </>
+                ) : mod.type === 'sin_twist' ? (
+                  <>
+                    <SliderRow label="amount" name={`m${i}_mag`} value={mod.mag ?? 50}
+                      min={settings.sin_twist_mag.min} max={settings.sin_twist_mag.max} step={settings.sin_twist_mag.step}
+                      onChange={(v) => updateField('modifiers', 'mag', v, i)} />
+                    <SliderRow label="freq" name={`m${i}_freq`} value={mod.freq ?? 1}
+                      min={settings.sin_twist_freq.min} max={settings.sin_twist_freq.max} step={settings.sin_twist_freq.step}
+                      onChange={(v) => updateField('modifiers', 'freq', v, i)} />
                   </>
                 ) : (
                   <>
@@ -400,14 +440,6 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
                       min={settings[`${prefix}_freq`].min} max={settings[`${prefix}_freq`].max} step={settings[`${prefix}_freq`].step}
                       onChange={(v) => updateField('modifiers', 'freq', v, i)}
                     />
-                    {isRadial && (
-                      <SliderRow
-                        label="twist" name={`m${i}_twist`}
-                        value={mod.twist}
-                        min={settings.radial_twist.min} max={settings.radial_twist.max} step={settings.radial_twist.step}
-                        onChange={(v) => updateField('modifiers', 'twist', v, i)}
-                      />
-                    )}
                     <SliderRow
                       label="phase" name={`m${i}_phase`}
                       value={mod.phase}

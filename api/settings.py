@@ -183,4 +183,19 @@ settings = {
         "max" : 8,
         "step" : 1,
         },
+    "twist_value" : {
+        "min" : -100,
+        "max" : 100,
+        "step" : 1,
+        },
+    "sin_twist_mag" : {
+        "min" : 0,
+        "max" : 25,
+        "step" : 1,
+        },
+    "sin_twist_freq" : {
+        "min" : 0.25,
+        "max" : 20,
+        "step" : 0.25,
+        },
 }

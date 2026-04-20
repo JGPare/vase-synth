@@ -39,7 +39,7 @@ class Vase(Base):
     name: Mapped[str] = mapped_column(Text)
     date: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
-    data: Mapped[str] = mapped_column(String(512))
+    data: Mapped[str] = mapped_column(Text)
     appearance: Mapped[str] = mapped_column(String(512))
     public: Mapped[int] = mapped_column(Integer, index=True, default=0)
     downloads: Mapped[int] = mapped_column(Integer, default=0)

@@ -1,6 +1,24 @@
 import { create } from 'zustand'
 import { apiJson } from '../api/client'
 
+const isJuliaType = (t) => t === 'julia_radial' || t === 'julia_edge_find'
+
+// Clear focus only if the focused index is no longer a valid Julia modifier.
+// Does NOT auto-pick a new one — that would reopen the picker on unrelated edits.
+const keepValidFocus = (prev, vaseData) => {
+  const mods = vaseData?.modifiers ?? []
+  if (prev != null && mods[prev] && isJuliaType(mods[prev].type)) return prev
+  return null
+}
+
+// Only used on load paths (load-vase, load-default, load-random, delete):
+// if no focus and the vase has a Julia modifier, auto-focus the first one.
+const autoFocusOnLoad = (vaseData) => {
+  const mods = vaseData?.modifiers ?? []
+  const firstJulia = mods.findIndex((m) => isJuliaType(m.type))
+  return firstJulia === -1 ? null : firstJulia
+}
+
 export const useVaseStore = create((set, get) => ({
   settings: null,
   vaseData: null,
@@ -10,11 +28,17 @@ export const useVaseStore = create((set, get) => ({
   access: 'public',
   indexList: [],
   downloads: 0,
+  focusedJuliaIndex: null,
 
-  setVaseData: (data) => set({ vaseData: data }),
+  setVaseData: (data) =>
+    set((state) => ({
+      vaseData: data,
+      focusedJuliaIndex: keepValidFocus(state.focusedJuliaIndex, data),
+    })),
   setVaseName: (name) => set({ vaseName: name }),
   setAccess: (access) => set({ access }),
   setAppearance: (appearance) => set({ appearance }),
+  setFocusedJuliaIndex: (i) => set({ focusedJuliaIndex: i }),
 
   loadSettings: async () => {
     const data = await apiJson('/api/load-settings')
@@ -30,7 +54,7 @@ export const useVaseStore = create((set, get) => ({
     })
     const [vaseDataStr] = res
     const vaseData = typeof vaseDataStr === 'string' ? JSON.parse(vaseDataStr) : vaseDataStr
-    set({ vaseData })
+    set({ vaseData, focusedJuliaIndex: autoFocusOnLoad(vaseData) })
   },
 
   loadVase: async (name, user) => {
@@ -42,7 +66,14 @@ export const useVaseStore = create((set, get) => ({
     const vaseData = typeof vaseDataStr === 'string' ? JSON.parse(vaseDataStr) : vaseDataStr
     const appearance = appearanceStr ? (typeof appearanceStr === 'string' ? JSON.parse(appearanceStr) : appearanceStr) : null
     vaseData.name = name
-    set({ vaseData, appearance, downloads, vaseName: name, username: user })
+    set({
+      vaseData,
+      appearance,
+      downloads,
+      vaseName: name,
+      username: user,
+      focusedJuliaIndex: autoFocusOnLoad(vaseData),
+    })
   },
 
   saveVase: async (data) => {
@@ -66,7 +97,7 @@ export const useVaseStore = create((set, get) => ({
     const [vaseDataStr, , downloads] = res
     const vaseData = typeof vaseDataStr === 'string' ? JSON.parse(vaseDataStr) : vaseDataStr
     vaseData.name = get().vaseName
-    set({ vaseData, downloads })
+    set({ vaseData, downloads, focusedJuliaIndex: autoFocusOnLoad(vaseData) })
   },
 
   deleteVase: async (name) => {
@@ -76,7 +107,7 @@ export const useVaseStore = create((set, get) => ({
     })
     const vaseData = typeof res === 'string' ? JSON.parse(res) : res
     vaseData.name = name
-    set({ vaseData, vaseName: 'Untitled' })
+    set({ vaseData, vaseName: 'Untitled', focusedJuliaIndex: autoFocusOnLoad(vaseData) })
     get().getIndex()
   },
 

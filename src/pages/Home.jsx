@@ -2,17 +2,20 @@ import { useRef, useState, useEffect } from 'react'
 import ControlPanel from '../components/ControlPanel'
 import IndexList from '../components/IndexList'
 import VaseCanvas from '../components/VaseCanvas'
+import JuliaPickerWindow from '../components/JuliaPickerWindow'
 import { useVaseStore } from '../stores/vaseStore'
 import { useAuthStore } from '../stores/authStore'
 
 export default function Home() {
   const meshRef = useRef()
   const appearance = useVaseStore((s) => s.appearance)
+  const focusedJuliaIndex = useVaseStore((s) => s.focusedJuliaIndex)
   const [spinSpeed, setSpinSpeed] = useState(0.5)
   const [activeTab, setActiveTab] = useState('edit')
 
   const { access, setAccess, getIndex, indexList, loadVase } = useVaseStore()
   const { isAuthenticated } = useAuthStore()
+  const pickerOpen = focusedJuliaIndex != null
 
   const handleTabChange = (tab) => {
     setActiveTab(tab)
@@ -63,8 +66,15 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Middle panel — Julia picker window */}
+      {pickerOpen && (
+        <div className="w-1/4 border-r border-gray-700 min-w-0">
+          <JuliaPickerWindow />
+        </div>
+      )}
+
       {/* Right panel — 3D canvas */}
-      <div className="flex-1">
+      <div className="flex-1 transition-[width] duration-150 min-w-0">
         <VaseCanvas meshRef={meshRef} appearance={appearance} spinSpeed={spinSpeed} />
       </div>
     </div>

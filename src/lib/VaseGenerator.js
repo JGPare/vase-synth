@@ -26,7 +26,7 @@ export default class VaseGenerator
         if (mod.type === 'sin_radial' || mod.type === 'tri_radial') {
             mod.mag = parseFloat(mod.mag) / 20
             mod.freq = parseFloat(mod.freq)
-            mod.twist = parseFloat(mod.twist) / params.height
+            mod.twist = parseFloat(mod.twist || 0) / params.height
             mod.phase = parseFloat(mod.phase) / 100
         } else if (mod.type === 'sin_vertical' || mod.type === 'tri_vertical') {
             mod.mag = parseFloat(mod.mag) / 20
@@ -44,9 +44,10 @@ export default class VaseGenerator
             mod.offset_x = parseFloat(mod.offset_x || 0)
             mod.offset_y = parseFloat(mod.offset_y || 0)
             mod.view_scale = parseFloat(mod.view_scale || 60)
-            // effective radii in complex units: fixed pixel radius / current zoom
-            mod.r_bottom = parseFloat(mod.r_bottom) / 100 * 60 / mod.view_scale
-            mod.r_top = parseFloat(mod.r_top) / 100 * 60 / mod.view_scale
+            // r_bottom / r_top are complex-space radii (slider 0-200 → 0-2.0).
+            // view_scale is picker UI state only; it must not change geometry.
+            mod.r_bottom = parseFloat(mod.r_bottom) / 100
+            mod.r_top = parseFloat(mod.r_top) / 100
         } else if (mod.type === 'julia_edge_find') {
             mod.c_x = parseFloat(mod.c_x) / 100
             mod.c_y = parseFloat(mod.c_y) / 100
@@ -62,9 +63,14 @@ export default class VaseGenerator
             mod.offset_x = parseFloat(mod.offset_x || 0)
             mod.offset_y = parseFloat(mod.offset_y || 0)
             mod.view_scale = parseFloat(mod.view_scale || 60)
-            mod.r_bottom = parseFloat(mod.r_bottom) / 100 * 60 / mod.view_scale
-            mod.r_top    = parseFloat(mod.r_top)    / 100 * 60 / mod.view_scale
+            mod.r_bottom = parseFloat(mod.r_bottom) / 100
+            mod.r_top    = parseFloat(mod.r_top)    / 100
             mod.folds = parseInt(mod.folds || 2)
+        } else if (mod.type === 'twist') {
+            mod.value = parseFloat(mod.value || 0)
+        } else if (mod.type === 'sin_twist') {
+            mod.mag = parseFloat(mod.mag || 0) * 4 * Math.PI / 100
+            mod.freq = parseFloat(mod.freq || 1)
         }
     })
     params.modifiers = modifiers
@@ -297,6 +303,9 @@ export default class VaseGenerator
     }
 
     if (adjacency.size === 0) {
+      console.warn('[julia_edge] contour fallback — no marching-squares crossings', {
+        c_x, c_y, iterations, targetIter, r_top, offset_x, offset_y, flip, folds,
+      })
       const pts = []
       for (let i = 0; i < 64; i++) {
         const a = i / 64 * 2 * Math.PI
@@ -328,6 +337,10 @@ export default class VaseGenerator
     }
 
     if (polygons.length === 0) {
+      console.warn('[julia_edge] contour fallback — no closed polygons traced', {
+        c_x, c_y, iterations, targetIter, r_top, offset_x, offset_y, flip, folds,
+        adjacencySize: adjacency.size,
+      })
       const pts = []
       for (let i = 0; i < 64; i++) {
         const a = i / 64 * 2 * Math.PI
@@ -347,6 +360,10 @@ export default class VaseGenerator
       }
       if (len > bestLen) { bestLen = len; bestPoly = poly }
     }
+    console.log('[julia_edge] contour traced', {
+      targetIter, r_top, polygonsFound: polygons.length, bestLen: bestLen.toFixed(4),
+      bestPoints: bestPoly.length,
+    })
     return bestPoly
   }
 
@@ -403,6 +420,20 @@ export default class VaseGenerator
     const GRID = 128
     const targetIterBottom = Math.round(modifier.threshold / 100 * modifier.iterations)
     const targetIterTop    = Math.round(modifier.threshold / 100 * modifier.iterations_top)
+    console.log('[julia_edge] generate', {
+      threshold: modifier.threshold,
+      iterations: modifier.iterations,
+      iterations_top: modifier.iterations_top,
+      targetIterBottom,
+      targetIterTop,
+      r_bottom_effective: modifier.r_bottom.toFixed(4),
+      r_top_effective: modifier.r_top.toFixed(4),
+      view_scale: modifier.view_scale,
+      c_x: modifier.c_x, c_y: modifier.c_y,
+      c_x_top: modifier.c_x_top, c_y_top: modifier.c_y_top,
+      offset_x: modifier.offset_x, offset_y: modifier.offset_y,
+      folds: modifier.folds, flip: modifier.flip,
+    })
     const contourBottom = VaseGenerator.juliaContour(
       modifier.c_x, modifier.c_y, modifier.iterations, targetIterBottom,
       GRID, modifier.offset_x, modifier.offset_y, modifier.r_top, modifier.flip, modifier.folds
@@ -437,12 +468,19 @@ export default class VaseGenerator
       })
     }
 
+    const rawTwistLinear = vase.modifiers
+      .filter(m => m.type === 'twist')
+      .reduce((sum, m) => sum + m.value, 0)
+    const sinTwistAngle = (t) => vase.modifiers
+      .filter(m => m.type === 'sin_twist')
+      .reduce((sum, m) => sum + m.mag * Math.sin(m.freq * t * 2 * Math.PI), 0)
+
     // Build outer slices: rotate + resample both contours, lerp by t
     const outerSlices = []
     for (let j = 0; j <= heightSegments; j++) {
       const t = j / heightSegments
       const y = -height / 2 + j * height / heightSegments
-      const rotAngle = modifier.twist * t
+      const rotAngle = (modifier.twist + rawTwistLinear * Math.PI / 100) * t + sinTwistAngle(t)
       const startAngle = modifier.phase * 2 * Math.PI + rotAngle
 
       const resampledBottom = VaseGenerator.resampleContour(rotateContour(contourBottomCW, rotAngle), R, startAngle, cx, cy)
@@ -459,6 +497,21 @@ export default class VaseGenerator
     const innerSlices = outerSlices.map(slice =>
       slice.map(p => ({ x: p.x * (1 - thickness), y: p.y, z: p.z * (1 - thickness) }))
     )
+
+    // The inner cavity starts at y = -H/2 + baseThickness. To keep the base solid
+    // (no inner wall poking through it), we build a dedicated inner-wall strip that
+    // starts at the base level, not at the vase bottom. Its first slice is an
+    // interpolation of the adjacent outer slices, then shrunk by thickness.
+    const innerBaseY = -height / 2 + baseThickness
+    const baseFrac = Math.max(0, Math.min(heightSegments, (baseThickness / height) * heightSegments))
+    const jBaseLow = Math.max(0, Math.min(heightSegments - 1, Math.floor(baseFrac)))
+    const fBase = Math.min(1, Math.max(0, baseFrac - jBaseLow))
+    const innerBaseSlice = outerSlices[jBaseLow].map((p, i) => {
+      const q = outerSlices[jBaseLow + 1][i]
+      const ox = p.x + fBase * (q.x - p.x)
+      const oz = p.z + fBase * (q.z - p.z)
+      return { x: ox * (1 - thickness), y: innerBaseY, z: oz * (1 - thickness) }
+    })
 
     const positions = []
     const push3 = (p) => positions.push(p.x, p.y, p.z)
@@ -478,12 +531,17 @@ export default class VaseGenerator
     const solid = thickness >= 1
 
     if (!solid) {
-      // Inner wall: reversed winding → inward normals
-      for (let j = 0; j < heightSegments; j++) {
+      // Inner wall runs from innerBaseSlice (at y = innerBaseY) up to innerSlices[jTop].
+      // Stitch innerBaseSlice → innerSlices[jBaseLow+1] first, then each j → j+1 above.
+      const innerWallSlices = [innerBaseSlice]
+      for (let j = jBaseLow + 1; j <= heightSegments; j++) innerWallSlices.push(innerSlices[j])
+
+      for (let j = 0; j < innerWallSlices.length - 1; j++) {
         for (let i = 0; i < R; i++) {
           const ni = (i + 1) % R
-          const p00 = innerSlices[j][i],    p10 = innerSlices[j][ni]
-          const p11 = innerSlices[j+1][ni], p01 = innerSlices[j+1][i]
+          const p00 = innerWallSlices[j][i],    p10 = innerWallSlices[j][ni]
+          const p11 = innerWallSlices[j+1][ni], p01 = innerWallSlices[j+1][i]
+          // reversed winding → inward (toward cavity) normals
           push3(p00); push3(p11); push3(p10)
           push3(p00); push3(p01); push3(p11)
         }
@@ -517,14 +575,12 @@ export default class VaseGenerator
     }
 
     if (!solid) {
-      // Inner base cap at y = baseThickness above bottom: CCW from above → upward normals
-      const innerBaseY = -height / 2 + baseThickness
+      // Inner base cap: disk at y = innerBaseY whose perimeter matches the inner wall's
+      // first ring exactly (innerBaseSlice). CCW from above → upward (into cavity) normals.
       const ibCenter = { x: 0, y: innerBaseY, z: 0 }
       for (let i = 0; i < R; i++) {
         const ni = (i + 1) % R
-        const p0 = { ...innerSlices[1][i],  y: innerBaseY }
-        const p1 = { ...innerSlices[1][ni], y: innerBaseY }
-        push3(ibCenter); push3(p0); push3(p1)
+        push3(ibCenter); push3(innerBaseSlice[i]); push3(innerBaseSlice[ni])
       }
     }
 
@@ -558,26 +614,38 @@ export default class VaseGenerator
 
   static transformGeometry(geometry, vase) {
     var position = geometry.attributes.position
-  
+
+    const rawTwistLinear = vase.modifiers
+        .filter(m => m.type === 'twist')
+        .reduce((sum, m) => sum + m.value, 0)
+    const sinTwistAngle = (t) => vase.modifiers
+        .filter(m => m.type === 'sin_twist')
+        .reduce((sum, m) => sum + m.mag * Math.sin(m.freq * t * 2 * Math.PI), 0)
+
     for (var i = 0; i < position.count; i++) {
         const x = position.getX(i)
         const y = position.getY(i)
         const z = position.getZ(i)
-  
+
         const cylinderical = new THREE.Cylindrical()
         cylinderical.setFromCartesianCoords(x, y, z)
-  
+
+        const t = (cylinderical.y + vase.height / 2) / vase.height
+        const extraAngle = sinTwistAngle(t)
+
         vase.modifiers.forEach(modifier => {
             if (modifier.type === 'sin_radial') {
                 cylinderical.radius += modifier.mag * Math.sin(modifier.freq * cylinderical.theta
-                    + modifier.twist * cylinderical.y
+                    + (modifier.twist + rawTwistLinear / vase.height) * cylinderical.y
+                    + extraAngle
                     + modifier.phase * 2 * Math.PI)
             } else if (modifier.type === 'sin_vertical') {
                 cylinderical.radius += modifier.mag * Math.sin(modifier.freq * cylinderical.y
                     + modifier.phase * 2 * Math.PI)
             } else if (modifier.type === 'tri_radial') {
                 const arg = modifier.freq * cylinderical.theta
-                    + modifier.twist * cylinderical.y
+                    + (modifier.twist + rawTwistLinear / vase.height) * cylinderical.y
+                    + extraAngle
                     + modifier.phase * 2 * Math.PI
                 cylinderical.radius += modifier.mag * (2 / Math.PI) * Math.asin(Math.sin(arg))
             } else if (modifier.type === 'tri_vertical') {
@@ -585,15 +653,17 @@ export default class VaseGenerator
                     + modifier.phase * 2 * Math.PI
                 cylinderical.radius += modifier.mag * (2 / Math.PI) * Math.asin(Math.sin(arg))
             } else if (modifier.type === 'julia_radial') {
-                const t = (cylinderical.y + vase.height / 2) / vase.height
                 const r = modifier.r_bottom + (modifier.r_top - modifier.r_bottom) * t
-                const arg = modifier.freq * cylinderical.theta + modifier.phase * 2 * Math.PI + modifier.twist * t
+                const twistAngle = (modifier.twist + rawTwistLinear * Math.PI / 100) * t + extraAngle
+                const arg = modifier.freq * cylinderical.theta + modifier.phase * 2 * Math.PI + twistAngle
                 const zr = modifier.offset_x + r * Math.cos(arg)
                 const zi = modifier.offset_y + modifier.flip * r * Math.sin(arg)
                 const iter = VaseGenerator.juliaIter(zr, zi, modifier.c_x, modifier.c_y, modifier.iterations)
                 cylinderical.radius += modifier.mag * (iter / modifier.iterations)
             } else if (modifier.type === 'julia_edge_find') {
                 // geometry shape already applied in generateJuliaEdgeGeometry; skip here
+            } else if (modifier.type === 'twist' || modifier.type === 'sin_twist') {
+                // handled via rawTwistLinear / sinTwistAngle pre-computation
             }
         })
   
