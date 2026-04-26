@@ -41,10 +41,10 @@ export const useVaseStore = create((set, get) => ({
   setFocusedJuliaIndex: (i) => set({ focusedJuliaIndex: i }),
 
   loadSettings: async () => {
+    if (get().settings) return
     const data = await apiJson('/api/load-settings')
     set({ settings: data })
-    // After settings, load default vase
-    get().loadDefault()
+    if (!get().vaseData) get().loadDefault()
   },
 
   loadDefault: async () => {
