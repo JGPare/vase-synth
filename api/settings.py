@@ -178,10 +178,15 @@ settings = {
         "max" : 100,
         "step" : 1,
         },
-    "julia_edge_folds" : {
+    "julia_edge_power" : {
         "min" : 2,
         "max" : 8,
         "step" : 1,
+        },
+    "julia_edge_repetitions" : {
+        "min" : 1,
+        "max" : 5,
+        "step" : 0.5,
         },
     "twist_value" : {
         "min" : -100,

@@ -9,7 +9,7 @@ export default function JuliaViewer({
   phase,
   twist,
   flip,
-  folds = 2,
+  power = 2,
   offset_x,
   offset_y,
   view_scale,
@@ -67,7 +67,7 @@ export default function JuliaViewer({
         if (flip === -1) zi = -zi
 
         let iter = 0
-        if (folds === 2) {
+        if (power === 2) {
           while (iter < iterations && zr * zr + zi * zi < 4) {
             const newZr = zr * zr - zi * zi + cr
             zi = 2 * zr * zi + ci
@@ -76,8 +76,8 @@ export default function JuliaViewer({
           }
         } else {
           while (iter < iterations && zr * zr + zi * zi < 4) {
-            const rn = Math.pow(Math.sqrt(zr * zr + zi * zi), folds)
-            const theta = Math.atan2(zi, zr) * folds
+            const rn = Math.pow(Math.sqrt(zr * zr + zi * zi), power)
+            const theta = Math.atan2(zi, zr) * power
             const newZr = rn * Math.cos(theta) + cr
             zi = rn * Math.sin(theta) + ci
             zr = newZr
@@ -168,7 +168,7 @@ export default function JuliaViewer({
       }
     }
 
-  }, [cr, ci, bm?.cr, bm?.ci, tm?.cr, tm?.ci, iterations, r_bottom, r_top, phase, twist, flip, folds, viewX, viewY, scale, size, interactive])
+  }, [cr, ci, bm?.cr, bm?.ci, tm?.cr, tm?.ci, iterations, r_bottom, r_top, phase, twist, flip, power, viewX, viewY, scale, size, interactive])
 
   const getCanvasPos = useCallback((e) => {
     const rect = canvasRef.current.getBoundingClientRect()

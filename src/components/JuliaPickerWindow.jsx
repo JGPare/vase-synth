@@ -25,11 +25,15 @@ export default function JuliaPickerWindow() {
 
   const updateField = useCallback((k, v) => updateFields({ [k]: v }), [updateFields])
 
+  const isEdge = mod?.type === 'julia_edge_find'
+
   useLayoutEffect(() => {
     if (!containerRef.current) return
     const measure = () => {
       const rect = containerRef.current.getBoundingClientRect()
-      const s = Math.max(240, Math.min(760, Math.floor(Math.min(rect.width - 48, rect.height - 160))))
+      const availW = rect.width - 32
+      const availH = rect.height * 0.55
+      const s = Math.max(160, Math.min(760, Math.floor(Math.min(availW, availH))))
       setCanvasSize(s)
     }
     measure()
@@ -52,13 +56,14 @@ export default function JuliaPickerWindow() {
 
   const close = useCallback(() => setFocusedJuliaIndex(null), [setFocusedJuliaIndex])
 
+  const defaultViewScale = isEdge ? 120 : 60
+
   const resetView = useCallback(() => {
-    updateFields({ offset_x: 0, offset_y: 0, view_scale: 60 })
-  }, [updateFields])
+    updateFields({ offset_x: 0, offset_y: 0, view_scale: defaultViewScale })
+  }, [updateFields, defaultViewScale])
 
   if (!mod || !settings) return null
 
-  const isEdge = mod.type === 'julia_edge_find'
   const title = isEdge ? 'julia edge' : 'julia radial'
 
   const twist = vaseData.modifiers
@@ -70,8 +75,8 @@ export default function JuliaPickerWindow() {
   const renderCy = showTop ? (mod.c_y_top ?? mod.c_y) : mod.c_y
   const renderIter = showTop ? (mod.iterations_top ?? mod.iterations) : mod.iterations
 
-  const bottomMarker = { c_x: mod.c_x, c_y: mod.c_y }
-  const topMarker = isEdge ? { c_x: mod.c_x_top ?? mod.c_x, c_y: mod.c_y_top ?? mod.c_y } : null
+  const bottomMarker = !isEdge || edgeView === 'bottom' ? { c_x: mod.c_x, c_y: mod.c_y } : null
+  const topMarker = isEdge && edgeView === 'top' ? { c_x: mod.c_x_top ?? mod.c_x, c_y: mod.c_y_top ?? mod.c_y } : null
 
   const clamp = (v, s) => Math.max(s.min, Math.min(s.max, v))
 
@@ -116,7 +121,7 @@ export default function JuliaPickerWindow() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 p-4 overflow-hidden">
+      <div className="shrink-0 flex items-center justify-center p-4">
         <div className="rounded overflow-hidden ring-1 ring-gray-700">
           <JuliaViewer
             c_x={renderCx}
@@ -126,8 +131,8 @@ export default function JuliaPickerWindow() {
             r_top={mod.r_top}
             phase={mod.phase}
             twist={twist}
-            flip={mod.flip}
-            folds={mod.folds ?? 2}
+            flip={isEdge ? 1 : mod.flip}
+            power={mod.power ?? 2}
             offset_x={mod.offset_x || 0}
             offset_y={mod.offset_y || 0}
             view_scale={mod.view_scale || 60}
@@ -146,11 +151,13 @@ export default function JuliaPickerWindow() {
             onPhaseChange={(p) => updateField('phase', p)}
           />
         </div>
+      </div>
 
-        <div className="w-full max-w-[560px] space-y-2 text-xs">
-          {isEdge && (
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400 w-16">render</span>
+      <div className="flex-1 overflow-y-auto px-4 pb-4 text-xs space-y-2">
+        {isEdge ? (<>
+          <div className="border border-gray-700 rounded p-2 space-y-1">
+            <div className="flex items-center gap-1 mb-1">
+              <span className="text-gray-400 flex-1">c / iter</span>
               <button
                 onClick={() => setEdgeView('bottom')}
                 className={`px-2 py-0.5 rounded ${edgeView === 'bottom' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
@@ -159,9 +166,51 @@ export default function JuliaPickerWindow() {
                 onClick={() => setEdgeView('top')}
                 className={`px-2 py-0.5 rounded ${edgeView === 'top' ? 'bg-orange-500' : 'bg-gray-700 hover:bg-gray-600'}`}
               >top</button>
-              <span className="text-gray-500 ml-2">(both c markers stay draggable)</span>
             </div>
-          )}
+            {showTop ? (<>
+              <SliderRow label="c.x" name="picker_c_x_top" value={mod.c_x_top ?? mod.c_x}
+                min={settings.julia_c_x.min} max={settings.julia_c_x.max} step={settings.julia_c_x.step}
+                onChange={(v) => updateField('c_x_top', v)} />
+              <SliderRow label="c.y" name="picker_c_y_top" value={mod.c_y_top ?? mod.c_y}
+                min={settings.julia_c_y.min} max={settings.julia_c_y.max} step={settings.julia_c_y.step}
+                onChange={(v) => updateField('c_y_top', v)} />
+              <SliderRow label="iter" name="picker_iter_top" value={mod.iterations_top ?? mod.iterations}
+                min={settings.julia_iterations.min} max={settings.julia_iterations.max} step={settings.julia_iterations.step}
+                onChange={(v) => updateField('iterations_top', v)} />
+            </>) : (<>
+              <SliderRow label="c.x" name="picker_c_x" value={mod.c_x}
+                min={settings.julia_c_x.min} max={settings.julia_c_x.max} step={settings.julia_c_x.step}
+                onChange={(v) => updateField('c_x', v)} />
+              <SliderRow label="c.y" name="picker_c_y" value={mod.c_y}
+                min={settings.julia_c_y.min} max={settings.julia_c_y.max} step={settings.julia_c_y.step}
+                onChange={(v) => updateField('c_y', v)} />
+              <SliderRow label="iter" name="picker_iter" value={mod.iterations}
+                min={settings.julia_iterations.min} max={settings.julia_iterations.max} step={settings.julia_iterations.step}
+                onChange={(v) => updateField('iterations', v)} />
+            </>)}
+            <SliderRow label="r bottom" name="picker_r_bottom" value={mod.r_bottom}
+              min={rRange.min} max={rRange.max} step={rRange.step}
+              onChange={(v) => updateField('r_bottom', v)} />
+            <SliderRow label="r top" name="picker_r_top" value={mod.r_top}
+              min={rRange.min} max={rRange.max} step={rRange.step}
+              onChange={(v) => updateField('r_top', v)} />
+            <SliderRow label="threshold" name="picker_threshold" value={mod.threshold}
+              min={settings.julia_edge_threshold?.min ?? 0} max={settings.julia_edge_threshold?.max ?? 100} step={settings.julia_edge_threshold?.step ?? 1}
+              onChange={(v) => updateField('threshold', v)} />
+            <SliderRow label="power" name="picker_power" value={mod.power ?? 2}
+              min={settings.julia_edge_power?.min ?? 2} max={settings.julia_edge_power?.max ?? 8} step={settings.julia_edge_power?.step ?? 1}
+              onChange={(v) => updateField('power', v)} />
+            <SliderRow label="repetitions" name="picker_repetitions" value={mod.repetitions ?? 1}
+              min={settings.julia_edge_repetitions?.min ?? 1} max={settings.julia_edge_repetitions?.max ?? 5} step={settings.julia_edge_repetitions?.step ?? 0.5}
+              onChange={(v) => updateField('repetitions', v)} />
+            <SliderRow label="phase" name="picker_phase" value={mod.phase}
+              min={settings.julia_phase.min} max={settings.julia_phase.max} step={settings.julia_phase.step}
+              onChange={(v) => updateField('phase', v)} />
+          </div>
+          <div className="text-[11px] text-gray-500 pt-1">
+            drag crosshair → c.x / c.y · drag white dot → phase + r&nbsp;bottom · drag orange dot → r&nbsp;top · drag empty → pan · wheel → zoom
+          </div>
+        </>) : (<>
           <SliderRow
             label="iter"
             name="picker_iter"
@@ -169,7 +218,7 @@ export default function JuliaPickerWindow() {
             min={settings.julia_iterations.min}
             max={settings.julia_iterations.max}
             step={settings.julia_iterations.step}
-            onChange={(v) => updateField(showTop ? 'iterations_top' : 'iterations', v)}
+            onChange={(v) => updateField('iterations', v)}
           />
           <div className="flex items-center gap-2">
             <span className="text-gray-400 w-16">flip</span>
@@ -183,7 +232,7 @@ export default function JuliaPickerWindow() {
           <div className="text-[11px] text-gray-500 pt-1">
             drag crosshair → c.x / c.y · drag white dot → phase + r&nbsp;bottom · drag orange dot → r&nbsp;top · drag empty → pan · wheel → zoom
           </div>
-        </div>
+        </>)}
       </div>
     </div>
   )

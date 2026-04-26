@@ -56,8 +56,6 @@ export default class VaseGenerator
             mod.c_y_top = mod.c_y_top !== undefined ? parseFloat(mod.c_y_top) / 100 : mod.c_y
             mod.iterations_top = mod.iterations_top !== undefined ? parseInt(mod.iterations_top) : mod.iterations
             mod.threshold = parseFloat(mod.threshold)
-            mod.flip = parseFloat(mod.flip)
-            mod.freq = parseFloat(mod.freq)
             mod.phase = parseFloat(mod.phase) / 100
             mod.twist = parseFloat(mod.twist || 0) * Math.PI / 100
             mod.offset_x = parseFloat(mod.offset_x || 0)
@@ -65,7 +63,8 @@ export default class VaseGenerator
             mod.view_scale = parseFloat(mod.view_scale || 60)
             mod.r_bottom = parseFloat(mod.r_bottom) / 100
             mod.r_top    = parseFloat(mod.r_top)    / 100
-            mod.folds = parseInt(mod.folds || 2)
+            mod.power = parseInt(mod.power || 2)
+            mod.repetitions = parseFloat(mod.repetitions || 1)
         } else if (mod.type === 'twist') {
             mod.value = parseFloat(mod.value || 0)
         } else if (mod.type === 'sin_twist') {
@@ -226,16 +225,16 @@ export default class VaseGenerator
   }
   
   // Returns the largest iso-contour polygon as [{x, y}, ...] in complex coords
-  static juliaContour(c_x, c_y, iterations, targetIter, gridSize, offset_x, offset_y, r_top, flip, folds = 2) {
+  static juliaContour(c_x, c_y, iterations, targetIter, gridSize, offset_x, offset_y, r_top, power = 2) {
     const N = gridSize + 1
     const iters = new Float32Array(N * N)
     for (let j = 0; j < N; j++) {
       for (let i = 0; i < N; i++) {
         const zr = offset_x + (i / gridSize * 2 - 1) * r_top
-        const zi = offset_y + flip * ((j / gridSize * 2 - 1) * r_top)
-        iters[j * N + i] = folds === 2
+        const zi = offset_y + (j / gridSize * 2 - 1) * r_top
+        iters[j * N + i] = power === 2
           ? VaseGenerator.juliaIter(zr, zi, c_x, c_y, iterations)
-          : VaseGenerator.juliaIterN(zr, zi, c_x, c_y, iterations, folds)
+          : VaseGenerator.juliaIterN(zr, zi, c_x, c_y, iterations, power)
       }
     }
 
@@ -269,14 +268,14 @@ export default class VaseGenerator
         const t = Math.abs(vB - vA) < 1e-9 ? 0.5 : Math.max(0, Math.min(1, (targetIter - vA) / (vB - vA)))
         const xA = offset_x + (a / gridSize * 2 - 1) * r_top
         const xB = offset_x + ((a + 1) / gridSize * 2 - 1) * r_top
-        const y  = offset_y + flip * ((b / gridSize * 2 - 1) * r_top)
+        const y  = offset_y + (b / gridSize * 2 - 1) * r_top
         pt = { x: xA + t * (xB - xA), y }
       } else {
         const vA = iters[b * N + a], vB = iters[(b + 1) * N + a]
         const t = Math.abs(vB - vA) < 1e-9 ? 0.5 : Math.max(0, Math.min(1, (targetIter - vA) / (vB - vA)))
         const x  = offset_x + (a / gridSize * 2 - 1) * r_top
-        const yA = offset_y + flip * ((b / gridSize * 2 - 1) * r_top)
-        const yB = offset_y + flip * (((b + 1) / gridSize * 2 - 1) * r_top)
+        const yA = offset_y + (b / gridSize * 2 - 1) * r_top
+        const yB = offset_y + ((b + 1) / gridSize * 2 - 1) * r_top
         pt = { x, y: yA + t * (yB - yA) }
       }
       edgePtCache.set(key, pt)
@@ -304,7 +303,7 @@ export default class VaseGenerator
 
     if (adjacency.size === 0) {
       console.warn('[julia_edge] contour fallback — no marching-squares crossings', {
-        c_x, c_y, iterations, targetIter, r_top, offset_x, offset_y, flip, folds,
+        c_x, c_y, iterations, targetIter, r_top, offset_x, offset_y, power,
       })
       const pts = []
       for (let i = 0; i < 64; i++) {
@@ -338,7 +337,7 @@ export default class VaseGenerator
 
     if (polygons.length === 0) {
       console.warn('[julia_edge] contour fallback — no closed polygons traced', {
-        c_x, c_y, iterations, targetIter, r_top, offset_x, offset_y, flip, folds,
+        c_x, c_y, iterations, targetIter, r_top, offset_x, offset_y, power,
         adjacencySize: adjacency.size,
       })
       const pts = []
@@ -420,6 +419,8 @@ export default class VaseGenerator
     const GRID = 128
     const targetIterBottom = Math.round(modifier.threshold / 100 * modifier.iterations)
     const targetIterTop    = Math.round(modifier.threshold / 100 * modifier.iterations_top)
+    const numPlanes = Math.max(2, Math.round(2 * (modifier.repetitions || 1)))
+    const numSegments = numPlanes - 1
     console.log('[julia_edge] generate', {
       threshold: modifier.threshold,
       iterations: modifier.iterations,
@@ -432,20 +433,14 @@ export default class VaseGenerator
       c_x: modifier.c_x, c_y: modifier.c_y,
       c_x_top: modifier.c_x_top, c_y_top: modifier.c_y_top,
       offset_x: modifier.offset_x, offset_y: modifier.offset_y,
-      folds: modifier.folds, flip: modifier.flip,
+      power: modifier.power,
+      repetitions: modifier.repetitions,
+      numPlanes,
     })
-    const contourBottom = VaseGenerator.juliaContour(
-      modifier.c_x, modifier.c_y, modifier.iterations, targetIterBottom,
-      GRID, modifier.offset_x, modifier.offset_y, modifier.r_top, modifier.flip, modifier.folds
-    )
-    const contourTop = VaseGenerator.juliaContour(
-      modifier.c_x_top, modifier.c_y_top, modifier.iterations_top, targetIterTop,
-      GRID, modifier.offset_x, modifier.offset_y, modifier.r_top, modifier.flip, modifier.folds
-    )
 
     const cx = modifier.offset_x, cy = modifier.offset_y
 
-    // Marching squares winding is non-deterministic; normalize both contours to CW
+    // Marching squares winding is non-deterministic; normalize each contour to CW
     // so the mesh normals are consistent (outer wall faces out, top cap faces up).
     const signedArea = (c) => {
       let a = 0
@@ -456,8 +451,15 @@ export default class VaseGenerator
       return a
     }
     const ensureCW = (c) => signedArea(c) < 0 ? c : [...c].reverse()
-    const contourBottomCW = ensureCW(contourBottom)
-    const contourTopCW    = ensureCW(contourTop)
+
+    const contourBottomCW = ensureCW(VaseGenerator.juliaContour(
+      modifier.c_x, modifier.c_y, modifier.iterations, targetIterBottom,
+      GRID, modifier.offset_x, modifier.offset_y, modifier.r_top, modifier.power
+    ))
+    const contourTopCW = ensureCW(VaseGenerator.juliaContour(
+      modifier.c_x_top, modifier.c_y_top, modifier.iterations_top, targetIterTop,
+      GRID, modifier.offset_x, modifier.offset_y, modifier.r_top, modifier.power
+    ))
 
     const rotateContour = (contour, angle) => {
       if (Math.abs(angle) <= 1e-10) return contour
@@ -475,21 +477,25 @@ export default class VaseGenerator
       .filter(m => m.type === 'sin_twist')
       .reduce((sum, m) => sum + m.mag * Math.sin(m.freq * t * 2 * Math.PI), 0)
 
-    // Build outer slices: rotate + resample both contours, lerp by t
+    // Build outer slices: rotate + resample the B and T contours, blend with a global
+    // cosine wave of frequency `numSegments / 2` over height. tBlend is C∞ continuous,
+    // so consecutive plane crossings have matching tangents — no creases.
     const outerSlices = []
     for (let j = 0; j <= heightSegments; j++) {
-      const t = j / heightSegments
+      const tGlobal = j / heightSegments
       const y = -height / 2 + j * height / heightSegments
-      const rotAngle = (modifier.twist + rawTwistLinear * Math.PI / 100) * t + sinTwistAngle(t)
+      const rotAngle = (modifier.twist + rawTwistLinear * Math.PI / 100) * tGlobal + sinTwistAngle(tGlobal)
       const startAngle = modifier.phase * 2 * Math.PI + rotAngle
+
+      const tBlend = (1 - Math.cos(numSegments * Math.PI * tGlobal)) / 2
 
       const resampledBottom = VaseGenerator.resampleContour(rotateContour(contourBottomCW, rotAngle), R, startAngle, cx, cy)
       const resampledTop    = VaseGenerator.resampleContour(rotateContour(contourTopCW,    rotAngle), R, startAngle, cx, cy)
       const lerped = resampledBottom.map((p, i) => ({
-        x: p.x + t * (resampledTop[i].x - p.x),
-        y: p.y + t * (resampledTop[i].y - p.y),
+        x: p.x + tBlend * (resampledTop[i].x - p.x),
+        y: p.y + tBlend * (resampledTop[i].y - p.y),
       }))
-      const scale = (width + t * height * slope) / modifier.r_top
+      const scale = (width + tGlobal * height * slope) / modifier.r_top
       outerSlices.push(lerped.map(p => ({ x: p.x * scale, y, z: p.y * scale })))
     }
 
