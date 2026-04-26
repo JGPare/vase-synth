@@ -7,7 +7,7 @@ export default class VaseGenerator
 {
   static generateVase(vaseData) {
     const generic = { ...vaseData.generic0, ...vaseData.generic1 }
-    const modifiers = vaseData.modifiers.map(m => ({ ...m }))
+    const modifiers = vaseData.modifiers.filter(m => m.enabled !== false).map(m => ({ ...m }))
 
     return this.createFromObjects(generic, modifiers)
   }

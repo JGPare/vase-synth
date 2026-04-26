@@ -56,7 +56,7 @@ export default function JuliaPickerWindow() {
 
   const close = useCallback(() => setFocusedJuliaIndex(null), [setFocusedJuliaIndex])
 
-  const defaultViewScale = isEdge ? 120 : 60
+  const defaultViewScale = 120
 
   const resetView = useCallback(() => {
     updateFields({ offset_x: 0, offset_y: 0, view_scale: defaultViewScale })
@@ -211,23 +211,40 @@ export default function JuliaPickerWindow() {
             drag crosshair → c.x / c.y · drag white dot → phase + r&nbsp;bottom · drag orange dot → r&nbsp;top · drag empty → pan · wheel → zoom
           </div>
         </>) : (<>
-          <SliderRow
-            label="iter"
-            name="picker_iter"
-            value={renderIter}
-            min={settings.julia_iterations.min}
-            max={settings.julia_iterations.max}
-            step={settings.julia_iterations.step}
-            onChange={(v) => updateField('iterations', v)}
-          />
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400 w-16">flip</span>
-            <button
-              onClick={() => updateField('flip', mod.flip === 1 ? -1 : 1)}
-              className={`px-2 py-0.5 rounded ${mod.flip === -1 ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-            >
-              {mod.flip === 1 ? 'normal' : 'flipped'}
-            </button>
+          <div className="border border-gray-700 rounded p-2 space-y-1">
+            <SliderRow label="amount" name="picker_mag" value={mod.mag}
+              min={settings.julia_mag.min} max={settings.julia_mag.max} step={settings.julia_mag.step}
+              onChange={(v) => updateField('mag', v)} />
+            <SliderRow label="c.x" name="picker_c_x" value={mod.c_x}
+              min={settings.julia_c_x.min} max={settings.julia_c_x.max} step={settings.julia_c_x.step}
+              onChange={(v) => updateField('c_x', v)} />
+            <SliderRow label="c.y" name="picker_c_y" value={mod.c_y}
+              min={settings.julia_c_y.min} max={settings.julia_c_y.max} step={settings.julia_c_y.step}
+              onChange={(v) => updateField('c_y', v)} />
+            <SliderRow label="iter" name="picker_iter" value={mod.iterations}
+              min={settings.julia_iterations.min} max={settings.julia_iterations.max} step={settings.julia_iterations.step}
+              onChange={(v) => updateField('iterations', v)} />
+            <SliderRow label="r bottom" name="picker_r_bottom" value={mod.r_bottom}
+              min={rRange.min} max={rRange.max} step={rRange.step}
+              onChange={(v) => updateField('r_bottom', v)} />
+            <SliderRow label="r top" name="picker_r_top" value={mod.r_top}
+              min={rRange.min} max={rRange.max} step={rRange.step}
+              onChange={(v) => updateField('r_top', v)} />
+            <SliderRow label="freq" name="picker_freq" value={mod.freq}
+              min={settings.julia_freq.min} max={settings.julia_freq.max} step={settings.julia_freq.step}
+              onChange={(v) => updateField('freq', v)} />
+            <div className="flex items-center gap-2 py-0.5">
+              <span className="text-gray-400 w-16">flip</span>
+              <button
+                onClick={() => updateField('flip', mod.flip === 1 ? -1 : 1)}
+                className={`px-2 py-0.5 rounded ${mod.flip === -1 ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}
+              >
+                {mod.flip === 1 ? 'normal' : 'flipped'}
+              </button>
+            </div>
+            <SliderRow label="phase" name="picker_phase" value={mod.phase}
+              min={settings.julia_phase.min} max={settings.julia_phase.max} step={settings.julia_phase.step}
+              onChange={(v) => updateField('phase', v)} />
           </div>
           <div className="text-[11px] text-gray-500 pt-1">
             drag crosshair → c.x / c.y · drag white dot → phase + r&nbsp;bottom · drag orange dot → r&nbsp;top · drag empty → pan · wheel → zoom

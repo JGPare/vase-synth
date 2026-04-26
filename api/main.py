@@ -5,11 +5,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from api.database import Base, engine
 from api.routes import auth, vases
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Vase Synth API")
+
+    # Create tables for any models not yet present in the DB. Idempotent — won't
+    # touch existing tables. No migrations framework, so schema changes still
+    # need to be applied manually.
+    Base.metadata.create_all(bind=engine)
 
     # CORS — allow Vite dev server
     app.add_middleware(
