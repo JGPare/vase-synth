@@ -156,6 +156,9 @@ export default function JuliaPickerWindow() {
       <div className="flex-1 overflow-y-auto px-4 pb-4 text-xs space-y-2">
         {isEdge ? (<>
           <div className="border border-gray-700 rounded p-2 space-y-1">
+            <SliderRow label="amount" name="picker_edge_amount" value={mod.amount ?? 100}
+              min={settings.julia_edge_amount.min} max={settings.julia_edge_amount.max} step={settings.julia_edge_amount.step}
+              onChange={(v) => updateField('amount', v)} />
             <div className="flex items-center gap-1 mb-1">
               <span className="text-gray-400 flex-1">c / iter</span>
               <button

@@ -110,7 +110,7 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
     } else if (newType === 'julia_radial') {
       newData.modifiers[i] = { type: 'julia_radial', mag: 30, c_x: -7, c_y: 27, r_bottom: 80, r_top: 120, iterations: 20, flip: 1, freq: 1, phase: 0, offset_x: 0, offset_y: 0, view_scale: 120 }
     } else if (newType === 'julia_edge_find') {
-      newData.modifiers[i] = { type: 'julia_edge_find', c_x: -7, c_y: 27, c_x_top: -7, c_y_top: 27, r_bottom: 30, r_top: 150, iterations: 20, iterations_top: 20, threshold: 90, power: 2, repetitions: 1, phase: 0, offset_x: 0, offset_y: 0, view_scale: 120 }
+      newData.modifiers[i] = { type: 'julia_edge_find', amount: 100, c_x: -7, c_y: 27, c_x_top: -7, c_y_top: 27, r_bottom: 30, r_top: 150, iterations: 20, iterations_top: 20, threshold: 90, power: 2, repetitions: 1, phase: 0, offset_x: 0, offset_y: 0, view_scale: 120 }
     } else if (newType === 'twist') {
       newData.modifiers[i] = { type: 'twist', value: 0 }
     } else if (newType === 'sin_twist') {

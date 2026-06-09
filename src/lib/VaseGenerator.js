@@ -65,6 +65,7 @@ export default class VaseGenerator
             mod.r_top    = parseFloat(mod.r_top)    / 100
             mod.power = parseInt(mod.power || 2)
             mod.repetitions = parseFloat(mod.repetitions || 1)
+            mod.amount = parseFloat(mod.amount ?? 100) / 100
         } else if (mod.type === 'twist') {
             mod.value = parseFloat(mod.value || 0)
         } else if (mod.type === 'sin_twist') {
@@ -496,7 +497,21 @@ export default class VaseGenerator
         y: p.y + tBlend * (resampledTop[i].y - p.y),
       }))
       const scale = (width + tGlobal * height * slope) / modifier.r_top
-      outerSlices.push(lerped.map(p => ({ x: p.x * scale, y, z: p.y * scale })))
+      const amount = modifier.amount
+      outerSlices.push(lerped.map(p => {
+        if (amount >= 1) return { x: p.x * scale, y, z: p.y * scale }
+        const lx = p.x - cx
+        const ly = p.y - cy
+        const r = Math.hypot(lx, ly)
+        if (r < 1e-9) return { x: cx * scale, y, z: cy * scale }
+        const newR = modifier.r_top + amount * (r - modifier.r_top)
+        const k = newR / r
+        return {
+          x: (cx + lx * k) * scale,
+          y,
+          z: (cy + ly * k) * scale,
+        }
+      }))
     }
 
     // Inner slices: scale toward vase axis
