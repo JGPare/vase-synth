@@ -239,6 +239,32 @@ export default class VaseGenerator
       }
     }
 
+    const bestPoly = VaseGenerator.marchingSquaresContour(iters, gridSize, targetIter, offset_x, offset_y, r_top)
+
+    if (bestPoly === null) {
+      console.warn('[julia_edge] contour fallback', {
+        c_x, c_y, iterations, targetIter, r_top, offset_x, offset_y, power,
+      })
+      const pts = []
+      for (let i = 0; i < 64; i++) {
+        const a = i / 64 * 2 * Math.PI
+        pts.push({ x: offset_x + r_top * 0.5 * Math.cos(a), y: offset_y + r_top * 0.5 * Math.sin(a) })
+      }
+      return pts
+    }
+
+    console.log('[julia_edge] contour traced', {
+      targetIter, r_top, bestPoints: bestPoly.length,
+    })
+    return bestPoly
+  }
+
+  // Trace the largest closed iso-contour at `threshold` from a scalar field.
+  // Grid is sampled at world coords offset_{x,y} + (i/gridSize*2 - 1) * r_top.
+  // Returns the polygon as [{x,y}, ...] in world coords, or null if no crossings.
+  static marchingSquaresContour(field, gridSize, threshold, offset_x, offset_y, r_top) {
+    const N = gridSize + 1
+
     // Marching squares: case index = bit3=TL, bit2=TR, bit1=BR, bit0=BL
     // Edges per cell: 0=top, 1=right, 2=bottom, 3=left
     const msEdgeTable = [
@@ -265,15 +291,15 @@ export default class VaseGenerator
       const a = parseInt(key.slice(us + 1, vs)), b = parseInt(key.slice(vs + 1))
       let pt
       if (type === 'H') {
-        const vA = iters[b * N + a], vB = iters[b * N + (a + 1)]
-        const t = Math.abs(vB - vA) < 1e-9 ? 0.5 : Math.max(0, Math.min(1, (targetIter - vA) / (vB - vA)))
+        const vA = field[b * N + a], vB = field[b * N + (a + 1)]
+        const t = Math.abs(vB - vA) < 1e-9 ? 0.5 : Math.max(0, Math.min(1, (threshold - vA) / (vB - vA)))
         const xA = offset_x + (a / gridSize * 2 - 1) * r_top
         const xB = offset_x + ((a + 1) / gridSize * 2 - 1) * r_top
         const y  = offset_y + (b / gridSize * 2 - 1) * r_top
         pt = { x: xA + t * (xB - xA), y }
       } else {
-        const vA = iters[b * N + a], vB = iters[(b + 1) * N + a]
-        const t = Math.abs(vB - vA) < 1e-9 ? 0.5 : Math.max(0, Math.min(1, (targetIter - vA) / (vB - vA)))
+        const vA = field[b * N + a], vB = field[(b + 1) * N + a]
+        const t = Math.abs(vB - vA) < 1e-9 ? 0.5 : Math.max(0, Math.min(1, (threshold - vA) / (vB - vA)))
         const x  = offset_x + (a / gridSize * 2 - 1) * r_top
         const yA = offset_y + (b / gridSize * 2 - 1) * r_top
         const yB = offset_y + ((b + 1) / gridSize * 2 - 1) * r_top
@@ -287,10 +313,10 @@ export default class VaseGenerator
     const adjacency = new Map()
     for (let cj = 0; cj < gridSize; cj++) {
       for (let ci = 0; ci < gridSize; ci++) {
-        const vBL = iters[cj * N + ci],      vBR = iters[cj * N + (ci + 1)]
-        const vTR = iters[(cj+1) * N + (ci+1)], vTL = iters[(cj+1) * N + ci]
-        const idx = ((vTL >= targetIter ? 1 : 0) << 3) | ((vTR >= targetIter ? 1 : 0) << 2) |
-                    ((vBR >= targetIter ? 1 : 0) << 1) |  (vBL >= targetIter ? 1 : 0)
+        const vBL = field[cj * N + ci],      vBR = field[cj * N + (ci + 1)]
+        const vTR = field[(cj+1) * N + (ci+1)], vTL = field[(cj+1) * N + ci]
+        const idx = ((vTL >= threshold ? 1 : 0) << 3) | ((vTR >= threshold ? 1 : 0) << 2) |
+                    ((vBR >= threshold ? 1 : 0) << 1) |  (vBL >= threshold ? 1 : 0)
         for (const [e0, e1] of msEdgeTable[idx]) {
           const k0 = cellEdgeKey(ci, cj, e0), k1 = cellEdgeKey(ci, cj, e1)
           getEdgePt(k0); getEdgePt(k1)
@@ -302,17 +328,7 @@ export default class VaseGenerator
       }
     }
 
-    if (adjacency.size === 0) {
-      console.warn('[julia_edge] contour fallback — no marching-squares crossings', {
-        c_x, c_y, iterations, targetIter, r_top, offset_x, offset_y, power,
-      })
-      const pts = []
-      for (let i = 0; i < 64; i++) {
-        const a = i / 64 * 2 * Math.PI
-        pts.push({ x: offset_x + r_top * 0.5 * Math.cos(a), y: offset_y + r_top * 0.5 * Math.sin(a) })
-      }
-      return pts
-    }
+    if (adjacency.size === 0) return null
 
     // Trace closed polygons
     const visited = new Set()
@@ -336,18 +352,7 @@ export default class VaseGenerator
       if (poly.length > 2) polygons.push(poly.map(k => getEdgePt(k)))
     }
 
-    if (polygons.length === 0) {
-      console.warn('[julia_edge] contour fallback — no closed polygons traced', {
-        c_x, c_y, iterations, targetIter, r_top, offset_x, offset_y, power,
-        adjacencySize: adjacency.size,
-      })
-      const pts = []
-      for (let i = 0; i < 64; i++) {
-        const a = i / 64 * 2 * Math.PI
-        pts.push({ x: offset_x + r_top * 0.5 * Math.cos(a), y: offset_y + r_top * 0.5 * Math.sin(a) })
-      }
-      return pts
-    }
+    if (polygons.length === 0) return null
 
     // Pick largest polygon by arc length
     let bestPoly = null, bestLen = -1
@@ -360,11 +365,67 @@ export default class VaseGenerator
       }
       if (len > bestLen) { bestLen = len; bestPoly = poly }
     }
-    console.log('[julia_edge] contour traced', {
-      targetIter, r_top, polygonsFound: polygons.length, bestLen: bestLen.toFixed(4),
-      bestPoints: bestPoly.length,
-    })
     return bestPoly
+  }
+
+  // Builds a signed distance field on a (gridSize+1)x(gridSize+1) grid aligned with
+  // offset_{x,y} +/- r_top. Positive inside the contour polygon, negative outside.
+  // Brute-force: O(gridSize^2 * contour.length). Called once per modifier change.
+  static contourSDF(contour, gridSize, offset_x, offset_y, r_top) {
+    const N = gridSize + 1
+    const sdf = new Float32Array(N * N)
+    const n = contour.length
+    if (n < 2) {
+      sdf.fill(-Infinity)
+      return sdf
+    }
+
+    for (let j = 0; j < N; j++) {
+      const py = offset_y + (j / gridSize * 2 - 1) * r_top
+      for (let i = 0; i < N; i++) {
+        const px = offset_x + (i / gridSize * 2 - 1) * r_top
+
+        let minDistSq = Infinity
+        for (let s = 0; s < n; s++) {
+          const a = contour[s]
+          const b = contour[(s + 1) % n]
+          const dx = b.x - a.x, dy = b.y - a.y
+          const len2 = dx * dx + dy * dy
+          let t = 0
+          if (len2 > 1e-20) {
+            t = ((px - a.x) * dx + (py - a.y) * dy) / len2
+            if (t < 0) t = 0
+            else if (t > 1) t = 1
+          }
+          const qx = a.x + t * dx, qy = a.y + t * dy
+          const ex = px - qx, ey = py - qy
+          const d2 = ex * ex + ey * ey
+          if (d2 < minDistSq) minDistSq = d2
+        }
+        const dist = Math.sqrt(minDistSq)
+
+        // Even-odd ray cast (horizontal +x) for inside/outside.
+        let inside = false
+        for (let s = 0; s < n; s++) {
+          const a = contour[s]
+          const b = contour[(s + 1) % n]
+          if ((a.y > py) !== (b.y > py)) {
+            const xCross = a.x + (py - a.y) * (b.x - a.x) / (b.y - a.y)
+            if (px < xCross) inside = !inside
+          }
+        }
+        sdf[j * N + i] = inside ? dist : -dist
+      }
+    }
+    return sdf
+  }
+
+  // Returns an inward-offset of `outerContour` at distance `offsetDistance` (same units
+  // as the contour). Returns null when the inner region pinches out entirely.
+  static offsetContourInward(outerContour, offsetDistance, gridSize, offset_x, offset_y, r_top) {
+    if (offsetDistance <= 0) return outerContour.map(p => ({ x: p.x, y: p.y }))
+    const sdf = VaseGenerator.contourSDF(outerContour, gridSize, offset_x, offset_y, r_top)
+    return VaseGenerator.marchingSquaresContour(sdf, gridSize, offsetDistance, offset_x, offset_y, r_top)
   }
 
   // Resample closed contour to N arc-length-uniform points, starting nearest to startAngle from (cx,cy)
@@ -478,61 +539,87 @@ export default class VaseGenerator
       .filter(m => m.type === 'sin_twist')
       .reduce((sum, m) => sum + m.mag * Math.sin(m.freq * t * 2 * Math.PI), 0)
 
-    // Build outer slices: rotate + resample the B and T contours, blend with a global
+    // Build slices: rotate + resample the B and T contours, blend with a global
     // cosine wave of frequency `numSegments / 2` over height. tBlend is C∞ continuous,
     // so consecutive plane crossings have matching tangents — no creases.
-    const outerSlices = []
-    for (let j = 0; j <= heightSegments; j++) {
-      const tGlobal = j / heightSegments
-      const y = -height / 2 + j * height / heightSegments
-      const rotAngle = (modifier.twist + rawTwistLinear * Math.PI / 100) * tGlobal + sinTwistAngle(tGlobal)
-      const startAngle = modifier.phase * 2 * Math.PI + rotAngle
+    // `amountTargetR` is the radius the contour collapses to when amount=0 (circle of
+    // that radius around (cx,cy)). Outer uses r_top; inner uses r_top - offsetDist so
+    // outer and inner stay separated even when amount=0.
+    const buildSlices = (cB, cT, amountTargetR) => {
+      const slices = []
+      for (let j = 0; j <= heightSegments; j++) {
+        const tGlobal = j / heightSegments
+        const y = -height / 2 + j * height / heightSegments
+        const rotAngle = (modifier.twist + rawTwistLinear * Math.PI / 100) * tGlobal + sinTwistAngle(tGlobal)
+        const startAngle = modifier.phase * 2 * Math.PI + rotAngle
 
-      const tBlend = (1 - Math.cos(numSegments * Math.PI * tGlobal)) / 2
+        const tBlend = (1 - Math.cos(numSegments * Math.PI * tGlobal)) / 2
 
-      const resampledBottom = VaseGenerator.resampleContour(rotateContour(contourBottomCW, rotAngle), R, startAngle, cx, cy)
-      const resampledTop    = VaseGenerator.resampleContour(rotateContour(contourTopCW,    rotAngle), R, startAngle, cx, cy)
-      const lerped = resampledBottom.map((p, i) => ({
-        x: p.x + tBlend * (resampledTop[i].x - p.x),
-        y: p.y + tBlend * (resampledTop[i].y - p.y),
-      }))
-      const scale = (width + tGlobal * height * slope) / modifier.r_top
-      const amount = modifier.amount
-      outerSlices.push(lerped.map(p => {
-        if (amount >= 1) return { x: p.x * scale, y, z: p.y * scale }
-        const lx = p.x - cx
-        const ly = p.y - cy
-        const r = Math.hypot(lx, ly)
-        if (r < 1e-9) return { x: cx * scale, y, z: cy * scale }
-        const newR = modifier.r_top + amount * (r - modifier.r_top)
-        const k = newR / r
-        return {
-          x: (cx + lx * k) * scale,
-          y,
-          z: (cy + ly * k) * scale,
-        }
-      }))
+        const resampledBottom = VaseGenerator.resampleContour(rotateContour(cB, rotAngle), R, startAngle, cx, cy)
+        const resampledTop    = VaseGenerator.resampleContour(rotateContour(cT, rotAngle), R, startAngle, cx, cy)
+        const lerped = resampledBottom.map((p, i) => ({
+          x: p.x + tBlend * (resampledTop[i].x - p.x),
+          y: p.y + tBlend * (resampledTop[i].y - p.y),
+        }))
+        const scale = (width + tGlobal * height * slope) / modifier.r_top
+        const amount = modifier.amount
+        slices.push(lerped.map(p => {
+          if (amount >= 1) return { x: p.x * scale, y, z: p.y * scale }
+          const lx = p.x - cx
+          const ly = p.y - cy
+          const r = Math.hypot(lx, ly)
+          if (r < 1e-9) return { x: cx * scale, y, z: cy * scale }
+          const newR = amountTargetR + amount * (r - amountTargetR)
+          const k = newR / r
+          return {
+            x: (cx + lx * k) * scale,
+            y,
+            z: (cy + ly * k) * scale,
+          }
+        }))
+      }
+      return slices
     }
 
-    // Inner slices: scale toward vase axis
-    const innerSlices = outerSlices.map(slice =>
-      slice.map(p => ({ x: p.x * (1 - thickness), y: p.y, z: p.z * (1 - thickness) }))
-    )
+    const outerSlices = buildSlices(contourBottomCW, contourTopCW, modifier.r_top)
+
+    // Inner contours: inward SDF offset of the outer contours by `thickness * r_top`
+    // in Julia space. After per-slice world scaling this gives a uniform wall thickness
+    // per slice. Inlets narrower than 2*offset pinch off (single largest inner loop
+    // is kept); if the inner region disappears entirely the vase falls back to solid.
+    const offsetDist = thickness * modifier.r_top
+    const wantInner = thickness > 0 && thickness < 1
+    const innerBottomRaw = wantInner
+      ? VaseGenerator.offsetContourInward(contourBottomCW, offsetDist, GRID, modifier.offset_x, modifier.offset_y, modifier.r_top)
+      : null
+    const innerTopRaw = wantInner
+      ? VaseGenerator.offsetContourInward(contourTopCW, offsetDist, GRID, modifier.offset_x, modifier.offset_y, modifier.r_top)
+      : null
+    const innerExists = innerBottomRaw !== null && innerTopRaw !== null
+    const innerBottomCW = innerExists ? ensureCW(innerBottomRaw) : null
+    const innerTopCW    = innerExists ? ensureCW(innerTopRaw)    : null
+    const innerSlices = innerExists
+      ? buildSlices(innerBottomCW, innerTopCW, modifier.r_top - offsetDist)
+      : null
 
     // The inner cavity starts at y = -H/2 + baseThickness. To keep the base solid
     // (no inner wall poking through it), we build a dedicated inner-wall strip that
     // starts at the base level, not at the vase bottom. Its first slice is an
-    // interpolation of the adjacent outer slices, then shrunk by thickness.
+    // interpolation of the adjacent inner slices at the base level.
     const innerBaseY = -height / 2 + baseThickness
     const baseFrac = Math.max(0, Math.min(heightSegments, (baseThickness / height) * heightSegments))
     const jBaseLow = Math.max(0, Math.min(heightSegments - 1, Math.floor(baseFrac)))
     const fBase = Math.min(1, Math.max(0, baseFrac - jBaseLow))
-    const innerBaseSlice = outerSlices[jBaseLow].map((p, i) => {
-      const q = outerSlices[jBaseLow + 1][i]
-      const ox = p.x + fBase * (q.x - p.x)
-      const oz = p.z + fBase * (q.z - p.z)
-      return { x: ox * (1 - thickness), y: innerBaseY, z: oz * (1 - thickness) }
-    })
+    const innerBaseSlice = innerExists
+      ? innerSlices[jBaseLow].map((p, i) => {
+          const q = innerSlices[jBaseLow + 1][i]
+          return {
+            x: p.x + fBase * (q.x - p.x),
+            y: innerBaseY,
+            z: p.z + fBase * (q.z - p.z),
+          }
+        })
+      : null
 
     const positions = []
     const push3 = (p) => positions.push(p.x, p.y, p.z)
@@ -549,7 +636,7 @@ export default class VaseGenerator
     }
 
     const jTop = heightSegments
-    const solid = thickness >= 1
+    const solid = thickness >= 1 || !innerExists
 
     if (!solid) {
       // Inner wall runs from innerBaseSlice (at y = innerBaseY) up to innerSlices[jTop].
