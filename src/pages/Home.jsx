@@ -46,7 +46,7 @@ export default function Home() {
         {/* Tab content */}
         <div className="flex-1 overflow-hidden">
           {activeTab === 'edit' ? (
-            <ControlPanel meshRef={meshRef} spinSpeed={spinSpeed} setSpinSpeed={setSpinSpeed} />
+            <ControlPanel spinSpeed={spinSpeed} setSpinSpeed={setSpinSpeed} />
           ) : (
             <div className="h-full overflow-y-auto p-3 space-y-3">
               <select

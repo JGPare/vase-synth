@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
+import { useVaseStore } from '../stores/vaseStore'
 
 export default function JuliaViewer({
   c_x,
@@ -28,6 +29,7 @@ export default function JuliaViewer({
   onPhaseChange,
 }) {
   const canvasRef = useRef(null)
+  const setInteracting = useVaseStore((s) => s.setInteracting)
   const [viewX, setViewX] = useState(-(offset_x || 0))
   const [viewY, setViewY] = useState(-(offset_y || 0))
   const [scale, setScale] = useState(view_scale || 60)
@@ -243,7 +245,8 @@ export default function JuliaViewer({
     const zone = hitTest(pos)
     dragMode.current = zone
     lastPos.current = { x: e.clientX, y: e.clientY, canvasX: pos.x, canvasY: pos.y }
-  }, [getCanvasPos, hitTest])
+    setInteracting(true)
+  }, [getCanvasPos, hitTest, setInteracting])
 
   const onMouseMove = useCallback((e) => {
     const pos = getCanvasPos(e)
@@ -329,8 +332,13 @@ export default function JuliaViewer({
     if (dragMode.current === 'pan') {
       onOffsetChange?.(-viewRef.current.x, -viewRef.current.y)
     }
+    setInteracting(false)
     dragMode.current = null
-  }, [onOffsetChange])
+  }, [onOffsetChange, setInteracting])
+
+  // If the picker unmounts mid-drag (e.g. Escape closes the window while the
+  // button is held), mouseup never fires — don't leave the flag stuck true.
+  useEffect(() => () => setInteracting(false), [setInteracting])
 
   const cursor = !interactive
     ? 'default'

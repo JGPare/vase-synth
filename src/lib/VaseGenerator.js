@@ -253,9 +253,6 @@ export default class VaseGenerator
       return pts
     }
 
-    console.log('[julia_edge] contour traced', {
-      targetIter, r_top, bestPoints: bestPoly.length,
-    })
     return bestPoly
   }
 
@@ -483,22 +480,6 @@ export default class VaseGenerator
     const targetIterTop    = Math.round(modifier.threshold / 100 * modifier.iterations_top)
     const numPlanes = Math.max(2, Math.round(2 * (modifier.repetitions || 1)))
     const numSegments = numPlanes - 1
-    console.log('[julia_edge] generate', {
-      threshold: modifier.threshold,
-      iterations: modifier.iterations,
-      iterations_top: modifier.iterations_top,
-      targetIterBottom,
-      targetIterTop,
-      r_bottom_effective: modifier.r_bottom.toFixed(4),
-      r_top_effective: modifier.r_top.toFixed(4),
-      view_scale: modifier.view_scale,
-      c_x: modifier.c_x, c_y: modifier.c_y,
-      c_x_top: modifier.c_x_top, c_y_top: modifier.c_y_top,
-      offset_x: modifier.offset_x, offset_y: modifier.offset_y,
-      power: modifier.power,
-      repetitions: modifier.repetitions,
-      numPlanes,
-    })
 
     const cx = modifier.offset_x, cy = modifier.offset_y
 
@@ -730,12 +711,14 @@ export default class VaseGenerator
         .filter(m => m.type === 'sin_twist')
         .reduce((sum, m) => sum + m.mag * Math.sin(m.freq * t * 2 * Math.PI), 0)
 
+    const cylinderical = new THREE.Cylindrical()
+    const cartisian = new THREE.Vector3()
+
     for (var i = 0; i < position.count; i++) {
         const x = position.getX(i)
         const y = position.getY(i)
         const z = position.getZ(i)
 
-        const cylinderical = new THREE.Cylindrical()
         cylinderical.setFromCartesianCoords(x, y, z)
 
         const t = (cylinderical.y + vase.height / 2) / vase.height
@@ -775,9 +758,8 @@ export default class VaseGenerator
             }
         })
   
-        const cartisian = new THREE.Vector3()
         cartisian.setFromCylindrical(cylinderical)
-  
+
         position.setXYZ(i, cartisian.x, cartisian.y, cartisian.z)
     }
   }

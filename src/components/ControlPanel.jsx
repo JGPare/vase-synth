@@ -3,7 +3,7 @@ import { useVaseStore } from '../stores/vaseStore'
 import SliderRow from './SliderRow'
 import ExportPanel from './ExportPanel'
 
-export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
+export default function ControlPanel({ spinSpeed, setSpinSpeed }) {
   const {
     settings,
     vaseData,
@@ -208,12 +208,14 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
             value={vaseData.generic1.vertical_steps}
             min={settings.vertical_steps.min} max={settings.vertical_steps.max} step={settings.vertical_steps.step}
             onChange={(v) => updateField('generic1', 'vertical_steps', v)}
+            trackInteraction={false}
           />
           <SliderRow
             label="radial" name="radial_steps"
             value={vaseData.generic1.radial_steps}
             min={settings.radial_steps.min} max={settings.radial_steps.max} step={settings.radial_steps.step}
             onChange={(v) => updateField('generic1', 'radial_steps', v)}
+            trackInteraction={false}
           />
         </div>
       </div>
@@ -344,10 +346,11 @@ export default function ControlPanel({ meshRef, spinSpeed, setSpinSpeed }) {
           max={1}
           step={0.25}
           onChange={setSpinSpeed}
+          trackInteraction={false}
         />
       </div>
 
-      <ExportPanel meshRef={meshRef} />
+      <ExportPanel />
     </div>
   )
 }

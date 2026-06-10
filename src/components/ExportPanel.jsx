@@ -1,7 +1,7 @@
 import { useSTLExport } from '../hooks/useSTLExport'
 
-export default function ExportPanel({ meshRef }) {
-  const { exportASCII, exportBinary } = useSTLExport(meshRef)
+export default function ExportPanel() {
+  const { exportASCII, exportBinary } = useSTLExport()
 
   return (
     <div>

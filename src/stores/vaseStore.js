@@ -29,6 +29,9 @@ export const useVaseStore = create((set, get) => ({
   indexList: [],
   downloads: 0,
   focusedJuliaIndex: null,
+  // True while the user is dragging a slider or the julia picker;
+  // geometry renders at reduced resolution until release.
+  interacting: false,
 
   setVaseData: (data) =>
     set((state) => ({
@@ -39,6 +42,7 @@ export const useVaseStore = create((set, get) => ({
   setAccess: (access) => set({ access }),
   setAppearance: (appearance) => set({ appearance }),
   setFocusedJuliaIndex: (i) => set({ focusedJuliaIndex: i }),
+  setInteracting: (interacting) => set({ interacting }),
 
   loadSettings: async () => {
     if (get().settings) return

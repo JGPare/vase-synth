@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import * as THREE from 'three'
 import { STLExporter } from 'three/addons/exporters/STLExporter.js'
 import { useVaseStore } from '../stores/vaseStore'
+import VaseGenerator from '../lib/VaseGenerator'
 
 const exporter = new STLExporter()
 const SCALE = 0.02
@@ -24,37 +25,34 @@ function saveArrayBuffer(buffer, filename) {
   save(new Blob([buffer], { type: 'application/octet-stream' }), filename)
 }
 
-export function useSTLExport(meshRef) {
+export function useSTLExport() {
   const incrementDownloads = useVaseStore((s) => s.incrementDownloads)
   const vaseName = useVaseStore((s) => s.vaseName)
+  const vaseData = useVaseStore((s) => s.vaseData)
 
-  const exportASCII = useCallback(() => {
-    if (!meshRef?.current) return
-    const vaseMesh = meshRef.current
-    const tempMesh = new THREE.Mesh(vaseMesh.geometry, vaseMesh.material)
+  const doExport = useCallback((binary) => {
+    if (!vaseData) return
+    // Generate fresh at full resolution: the displayed mesh comes from the
+    // async worker and may be a reduced drag preview or behind the latest edits.
+    const vase = VaseGenerator.generateVase(vaseData)
+    const geometry = VaseGenerator.generateGeometry(vase)
+    const tempMesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial())
     tempMesh.scale.set(1 / SCALE, 1 / SCALE, 1 / SCALE)
 
-    tempMesh.geometry.rotateX(Math.PI / 2)
-    const result = exporter.parse(tempMesh)
-    tempMesh.geometry.rotateX(-Math.PI / 2)
+    geometry.rotateX(Math.PI / 2)
+    const result = exporter.parse(tempMesh, binary ? { binary: true } : undefined)
+    geometry.dispose()
 
-    saveString(result, vaseName + '.stl')
+    if (binary) {
+      saveArrayBuffer(result, vaseName + '.stl')
+    } else {
+      saveString(result, vaseName + '.stl')
+    }
     incrementDownloads()
-  }, [meshRef, vaseName, incrementDownloads])
+  }, [vaseData, vaseName, incrementDownloads])
 
-  const exportBinary = useCallback(() => {
-    if (!meshRef?.current) return
-    const vaseMesh = meshRef.current
-    const tempMesh = new THREE.Mesh(vaseMesh.geometry, vaseMesh.material)
-    tempMesh.scale.set(1 / SCALE, 1 / SCALE, 1 / SCALE)
-
-    tempMesh.geometry.rotateX(Math.PI / 2)
-    const result = exporter.parse(tempMesh, { binary: true })
-    tempMesh.geometry.rotateX(-Math.PI / 2)
-
-    saveArrayBuffer(result, vaseName + '.stl')
-    incrementDownloads()
-  }, [meshRef, vaseName, incrementDownloads])
+  const exportASCII = useCallback(() => doExport(false), [doExport])
+  const exportBinary = useCallback(() => doExport(true), [doExport])
 
   return { exportASCII, exportBinary }
 }
