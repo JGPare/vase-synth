@@ -14,13 +14,13 @@ export default function IndexList({ indexList = [], onClose }) {
 
   return (
     <div>
-      <table className="w-full text-sm">
+      <table className="w-full text-xs table-fixed">
         <thead>
-          <tr className="text-gray-400 text-xs">
+          <tr className="text-gray-400 text-[10px]">
             <td className="py-1 px-2">Vase Name</td>
-            <td className="py-1 px-2">Creator</td>
-            <td className="py-1 px-2">Access</td>
-            <td className="py-1 px-2 text-right">Downloads</td>
+            <td className="py-1 px-2 w-20">Creator</td>
+            <td className="py-1 px-2 w-10 text-center">Public</td>
+            <td className="py-1 px-2 w-16 text-right">Downloads</td>
           </tr>
         </thead>
         <tbody>
@@ -30,9 +30,11 @@ export default function IndexList({ indexList = [], onClose }) {
               onClick={() => handleRowClick(row)}
               className="cursor-pointer hover:bg-gray-700 transition-colors"
             >
-              <td className="py-1 px-2">{row.name}</td>
-              <td className="py-1 px-2 text-gray-400">{row.user}</td>
-              <td className="py-1 px-2 text-gray-400">{row.access}</td>
+              <td className="py-1 px-2 break-words">{row.name}</td>
+              <td className="py-1 px-2 text-gray-400 break-words">{row.user}</td>
+              <td className="py-1 px-2 text-center text-purple-400">
+                {row.access === 'public' ? '✓' : ''}
+              </td>
               <td className="py-1 px-2 text-gray-400 text-right">{row.downloads}</td>
             </tr>
           ))}

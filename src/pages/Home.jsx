@@ -48,7 +48,7 @@ export default function Home() {
           {activeTab === 'edit' ? (
             <ControlPanel spinSpeed={spinSpeed} setSpinSpeed={setSpinSpeed} />
           ) : (
-            <div className="h-full overflow-y-auto p-3 space-y-3">
+            <div className="themed-scroll h-full overflow-y-auto overflow-x-hidden p-3 space-y-3">
               <select
                 value={access}
                 onChange={(e) => { setAccess(e.target.value); getIndex() }}
